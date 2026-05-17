@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import String, Integer, ForeignKey, Text, DateTime, UniqueConstraint, Table, Column
+from sqlalchemy import String, Integer, ForeignKey, Text, DateTime, UniqueConstraint, Any, Table, Column
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 from sqlalchemy.dialects.postgresql import JSONB
@@ -9,6 +9,21 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 class Base(DeclarativeBase):
     pass
+
+
+alias_edges = Table(
+    "alias_edges",
+    Base.metadata,
+    Column("left_node_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True),
+    Column("right_node_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True)
+)
+
+upstream_edges = Table(
+    "upstream_edges",
+    Base.metadata,
+    Column("upstream_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True),
+    Column("downstream_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True)
+)
 
 
 class Affection(Base):
@@ -43,13 +58,50 @@ class Vulnerability(Base):
     published: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     withdrawn: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
-    aliases: Mapped[List[Optional[str]]] = mapped_column(JSONB)
-    upstream: Mapped[List[Optional[str]]] = mapped_column(JSONB)
-    related: Mapped[List[Optional[str]]] = mapped_column(JSONB)
+    aliases: Mapped[Optional[Any]] = mapped_column(JSONB)
+    upstream: Mapped[Optional[Any]] = mapped_column(JSONB)
+    related: Mapped[Optional[Any]] = mapped_column(JSONB)
 
     severity: Mapped[Optional[str]] = mapped_column(String(64))
     cwe_id: Mapped[int] = mapped_column(Integer)
     severity_text: Mapped[Optional[str]] = mapped_column(String(16))
+
+    alias_forward_neighbors: Mapped[List["Vulnerability"]] = relationship(
+        "Vulnerability",
+        secondary=alias_edges,
+        primaryjoin=id == alias_edges.c.left_node_id,
+        secondaryjoin=id == alias_edges.c.right_node_id,
+        back_populates="alias_backward_neighbors"
+    )
+
+    alias_backward_neighbors: Mapped[List["Vulnerability"]] = relationship(
+        "Vulnerability",
+        secondary=alias_edges,
+        primaryjoin=id == alias_edges.c.right_node_id,
+        secondaryjoin=id == alias_edges.c.left_node_id,
+        back_populates="alias_forward_neighbors"
+    )
+
+    @property
+    def equivalent_vulnerabilities(self) -> List["Vulnerability"]:
+        """Возвращает всех соседей по графу элиасов"""
+        return self.alias_forward_neighbors + self.alias_backward_neighbors
+
+    downstreams: Mapped[List["Vulnerability"]] = relationship(
+        "Vulnerability",
+        secondary=upstream_edges,
+        primaryjoin=id == upstream_edges.c.upstream_id,
+        secondaryjoin=id == upstream_edges.c.downstream_id,
+        back_populates="upstreams"
+    )
+
+    upstreams: Mapped[List["Vulnerability"]] = relationship(
+        "Vulnerability",
+        secondary=upstream_edges,
+        primaryjoin=id == upstream_edges.c.downstream_id,
+        secondaryjoin=id == upstream_edges.c.upstream_id,
+        back_populates="downstreams"
+    )
 
     package_links: Mapped[List["Affection"]] = relationship(
         back_populates="vulnerability",
