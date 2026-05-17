@@ -3,7 +3,8 @@ erDiagram
     Packages ||--o{ Affections : "затронут"
 
     Vulnerabilities {
-        int id PK
+        int pk_id PK
+        string id
         string summary
         timestamp published
         timestamp withdrawn
@@ -16,7 +17,8 @@ erDiagram
     }
 
     Packages {
-        int id PK
+        int pk_id PK
+        string id
         string ecosystem
         string name
     }
