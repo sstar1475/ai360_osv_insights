@@ -45,7 +45,7 @@ def fetch_osv_data_filtered(ecosystem, data_dir="data"):
         vuln_id = data.get("id", "")
         title = data.get("summary", "")
         description = data.get("details", "")
-        aliases = ", ".join(data.get("aliases", []))
+        aliases = data.get("aliases", [])
         severity_list = data.get("severity", [])
         severity_str = ""
 
@@ -95,7 +95,7 @@ def parse_single_vulnerability(data: dict):
     vuln_id = data.get("id", "")
     title = data.get("summary", "")
     description = data.get("details", "")
-    aliases = ", ".join(data.get("aliases", []))
+    aliases = data.get("aliases", [])
 
     severity_str = ""
     severity_list = data.get("severity", [])
