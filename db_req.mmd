@@ -1,0 +1,29 @@
+erDiagram
+    Vulnerabilities ||--o{ Affections : "содержит"
+    Packages ||--o{ Affections : "затронут"
+
+    Vulnerabilities {
+        int id PK
+        string summary
+        timestamp published
+        timestamp withdrawn
+        jsonb aliases
+        string upstream
+        jsonb related
+        float severity "из severity:score"
+        string cwe_id "из database_specific"
+        string severity_text "из database_specific"
+    }
+
+    Packages {
+        int id PK
+        string ecosystem
+        string name
+    }
+
+    Affections {
+        int vuln_id FK
+        int pack_id FK
+        string severity "из affected"
+        bytea ranges "raw data (binary)"
+    }
