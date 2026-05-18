@@ -14,22 +14,22 @@ class Base(DeclarativeBase):
 alias_edges = Table(
     "alias_edges",
     Base.metadata,
-    Column("alias_left_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True),
-    Column("alias_right_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True)
+    Column("alias_left_id", Integer, ForeignKey("vulnerabilities.pk_id", ondelete="CASCADE"), primary_key=True),
+    Column("alias_right_id", Integer, ForeignKey("vulnerabilities.pk_id", ondelete="CASCADE"), primary_key=True)
 )
 
 upstream_edges = Table(
     "upstream_edges",
     Base.metadata,
-    Column("upstream_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True),
-    Column("downstream_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True)
+    Column("upstream_id", Integer, ForeignKey("vulnerabilities.pk_id", ondelete="CASCADE"), primary_key=True),
+    Column("downstream_id", Integer, ForeignKey("vulnerabilities.pk_id", ondelete="CASCADE"), primary_key=True)
 )
 
 related_edges = Table(
     "related_edges",
     Base.metadata,
-    Column("related_left_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True),
-    Column("related_right_id", Integer, ForeignKey("vulnerabilities.id", ondelete="CASCADE"), primary_key=True)
+    Column("related_left_id", Integer, ForeignKey("vulnerabilities.pk_id", ondelete="CASCADE"), primary_key=True),
+    Column("related_right_id", Integer, ForeignKey("vulnerabilities.pk_id", ondelete="CASCADE"), primary_key=True)
 )
 
 
@@ -60,7 +60,7 @@ class Vulnerability(Base):
     __tablename__ = "vulnerabilities"
 
     pk_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    id: Mapped[Optional[str]] = mapped_column(String(64))
+    id: Mapped[Optional[str]] = mapped_column(String(64), unique=True, nullable=False)
     summary: Mapped[Optional[str]] = mapped_column(Text)
     published: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     withdrawn: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -76,32 +76,32 @@ class Vulnerability(Base):
     alias_forward_neighbors: Mapped[List["Vulnerability"]] = relationship(
         "Vulnerability",
         secondary=alias_edges,
-        primaryjoin=id == alias_edges.c.alias_left_id,
-        secondaryjoin=id == alias_edges.c.alias_right_id,
+        primaryjoin=pk_id == alias_edges.c.alias_left_id,
+        secondaryjoin=pk_id == alias_edges.c.alias_right_id,
         back_populates="alias_backward_neighbors"
     )
 
     alias_backward_neighbors: Mapped[List["Vulnerability"]] = relationship(
         "Vulnerability",
         secondary=alias_edges,
-        primaryjoin=id == alias_edges.c.alias_right_id,
-        secondaryjoin=id == alias_edges.c.alias_left_id,
+        primaryjoin=pk_id == alias_edges.c.alias_right_id,
+        secondaryjoin=pk_id == alias_edges.c.alias_left_id,
         back_populates="alias_forward_neighbors"
     )
 
     related_forward_neighbors: Mapped[List["Vulnerability"]] = relationship(
         "Vulnerability",
         secondary=related_edges,
-        primaryjoin=id == related_edges.c.related_left_id,
-        secondaryjoin=id == related_edges.c.related_right_id,
+        primaryjoin=pk_id == related_edges.c.related_left_id,
+        secondaryjoin=pk_id == related_edges.c.related_right_id,
         back_populates="related_backward_neighbors"
     )
 
     related_backward_neighbors: Mapped[List["Vulnerability"]] = relationship(
         "Vulnerability",
         secondary=related_edges,
-        primaryjoin=id == related_edges.c.related_right_id,
-        secondaryjoin=id == related_edges.c.related_left_id,
+        primaryjoin=pk_id == related_edges.c.related_right_id,
+        secondaryjoin=pk_id == related_edges.c.related_left_id,
         back_populates="related_forward_neighbors"
     )
 
@@ -118,16 +118,16 @@ class Vulnerability(Base):
     downstreams: Mapped[List["Vulnerability"]] = relationship(
         "Vulnerability",
         secondary=upstream_edges,
-        primaryjoin=id == upstream_edges.c.upstream_id,
-        secondaryjoin=id == upstream_edges.c.downstream_id,
+        primaryjoin=pk_id == upstream_edges.c.upstream_id,
+        secondaryjoin=pk_id == upstream_edges.c.downstream_id,
         back_populates="upstreams"
     )
 
     upstreams: Mapped[List["Vulnerability"]] = relationship(
         "Vulnerability",
         secondary=upstream_edges,
-        primaryjoin=id == upstream_edges.c.downstream_id,
-        secondaryjoin=id == upstream_edges.c.upstream_id,
+        primaryjoin=pk_id == upstream_edges.c.downstream_id,
+        secondaryjoin=pk_id == upstream_edges.c.upstream_id,
         back_populates="downstreams"
     )
 
