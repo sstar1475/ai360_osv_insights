@@ -1,10 +1,12 @@
 import json
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 import psycopg2
+from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = Path(__file__).parent.parent
+
+load_dotenv(BASE_DIR / ".env")
 
 DB_PARAMS = {
     "host": os.getenv("DB_HOST", "localhost"),
@@ -13,7 +15,6 @@ DB_PARAMS = {
     "password": os.getenv("DB_PASS"),
 }
 
-BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
