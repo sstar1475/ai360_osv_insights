@@ -38,4 +38,38 @@ DB_PASS=возьми_с_тг
 ### Инициализируеш в ноутбуке
 
 db = OSVDataClient()
-         
+
+## Доступные иструменты
+
+По умолчанию во всех методах настроена полная выгрузка данных '(limit=None)'. Если вам нужно быстро посмотреть структуру таблицы и сэкономить оперативную память, вы можете принудительно ограничить выборку, передав, например, 'limit=100'.
+
+### Примеры использования
+```
+# Выгрузит всю таблицу целиком (по умолчанию limit=None)
+df_vuln = db.get_vulnerabilities()
+
+# Пример: Найти только критические уязвимости (CRITICAL)
+critical_cases = df_vuln[df_vuln['severity_text'] == 'CRITICAL']
+
+df_pack = db.get_packages()
+
+# Пример: Посмотреть топ-5 самых уязвимых экосистем в нашей базе
+print(df_pack['ecosystem'].value_counts().head(5))
+
+df_report = db.get_detailed_report()
+
+# Пример: Найти все HIGH-угрозы для экосистемы Python (PyPI)
+pypi_high_risks = df_report[
+    (df_report['package_ecosystem'] == 'PyPI') & 
+    (df_report['affected_severity'] == 'HIGH')
+]
+
+# Поиск уязвимостей типа SQL-Injection или Bypass по ключевому слову:
+injections = df_vuln[df_vuln['summary'].str.contains('injection', case=False, na=False)]
+
+# Быстрый просмотр первых 20 строк таблицы:
+df_report.head(20)
+
+# Выгрузка отчета по вашей аналитике прямо в Excel для демонстрации:
+pypi_high_risks.to_excel("pypi_security_report.xlsx", index=False)
+```
