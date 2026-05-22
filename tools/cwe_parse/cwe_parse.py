@@ -8,7 +8,7 @@ class CWENode:
         self.descendants_dict: dict[str, list[str]] = {}
 
         ancestors: list[tuple[str, int]] = get_all_ancestors(self.cwe_id, Parents)
-        descedants: list[tuple[str, int]] = get_all_descendants(self.cwe_id, Kids)
+        descendants: list[tuple[str, int]] = get_all_descendants(self.cwe_id, Kids)
 
         self.ancestors_dict["ALL"] = []
         self.descendants_dict["ALL"] = []
@@ -18,7 +18,8 @@ class CWENode:
             if str(height) not in ancestors_dict:
                 self.ancestors_dict[str(height)] = []
             self.ancestors_dict[str(height)].append(ancestor_id)
-        for descedant_id, height in descedants:
+
+        for descendant_id, height in descendants:
             self.descendants_dict["ALL"].append(descedant_id)
             if str(height) not in descendants_dict:
                 self.descendants_dict[str(height)] = []

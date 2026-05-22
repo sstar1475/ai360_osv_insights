@@ -32,7 +32,7 @@ def get_highest_parents_for_view(xml_path, target_view="1000"):
 
 Parents, Kids = get_highest_parents_for_view(XML_path, target_view="1000")
 
-def get_all_ancestors(cwe_id: str, parents: dict[str, list[str]], height: int = 0) -> dict[str, list[str]]:
+def get_all_ancestors(cwe_id: str, parents: dict[str, list[str]], height: int = 0) -> list[tuple[str, int]]:
     ans = []
     for parent_id in parents[cwe_id]:
         ans.append((parent_id, height + 1))
@@ -41,7 +41,7 @@ def get_all_ancestors(cwe_id: str, parents: dict[str, list[str]], height: int = 
             continue
         ans += get_all_ancestors(parent_id, parents, height + 1)
     return ans
-def get_all_descendants(cwe_id: str, kids: dict[str, list[str]], height: int = 0) -> dict[str, list[str]]:
+def get_all_descendants(cwe_id: str, kids: dict[str, list[str]], height: int = 0) -> list[tuple[str, int]]:
     ans = []
     for kid_id in kids[cwe_id]:
         ans.append((kid_id, height + 1))
