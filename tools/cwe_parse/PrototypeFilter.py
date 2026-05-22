@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import pandas as pd
-from cwe_parse import CWENode
+from .cwe_parse import CWENode
 
 async def filter(df_report: pd.DataFrame, cwe_id: str) -> pd.DataFrame:
     node = CWENode(cwe_id)

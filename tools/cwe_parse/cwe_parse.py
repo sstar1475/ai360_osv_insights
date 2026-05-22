@@ -1,4 +1,4 @@
-from XMLConfigure import Parents, Kids, get_all_ancestors, get_all_descendants
+from .XMLConfigure import Parents, Kids, get_all_ancestors, get_all_descendants
 
 class CWENode:
     def __init__(self, cwe_id: str):
