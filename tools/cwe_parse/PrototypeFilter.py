@@ -11,3 +11,6 @@ def filter(df_report: pd.DataFrame, cwe_id: str)->pd.DataFrame:
         kids.append(f"CWE-{kid}")
 
     return df_report[df_report["vulnerability_cwe_id"].isin(kids)]
+def get_children(cwe_id: str):
+    node = CWENode(cwe_id)
+    return node.get_descendants("1")
