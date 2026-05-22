@@ -34,6 +34,8 @@ Parents, Kids = get_highest_parents_for_view(XML_path, target_view="1000")
 
 def get_all_ancestors(cwe_id: str, parents: dict[str, list[str]], height: int = 0) -> list[tuple[str, int]]:
     ans = []
+    if cwe_id not in parents:
+        return ans
     for parent_id in parents[cwe_id]:
         ans.append((parent_id, height + 1))
     for parent_id in parents[cwe_id]:
@@ -43,10 +45,12 @@ def get_all_ancestors(cwe_id: str, parents: dict[str, list[str]], height: int = 
     return ans
 def get_all_descendants(cwe_id: str, kids: dict[str, list[str]], height: int = 0) -> list[tuple[str, int]]:
     ans = []
+    if cwe_id not in kids:
+        return ans
     for kid_id in kids[cwe_id]:
         ans.append((kid_id, height + 1))
     for kid_id in kids[cwe_id]:
-        if kid_id not in mapping:
+        if kid_id not in kids:
             continue
-        ans += get_all_descendants(kid_id, mapping, height + 1)
-    return
+        ans += get_all_descendants(kid_id, kids, height + 1)
+    return ans
