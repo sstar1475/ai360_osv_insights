@@ -20,7 +20,7 @@ DATA_DIR.mkdir(exist_ok=True)
 
 
 def process_single_file(cur, json_file):
-    """Парсит один комплексный OSV JSON и распределяет данные по 3 таблицам"""
+    """Парсит один комплексный OSV JSON и распределяет данные по таблицам"""
 
     # Проверка MAL по имени файла
     if json_file.name.startswith("MAL-"):
@@ -67,7 +67,6 @@ def process_single_file(cur, json_file):
             withdrawn = EXCLUDED.withdrawn,
             aliases = EXCLUDED.aliases,
             upstream = EXCLUDED.upstream,
-            related = EXCLUDED.related,
             severity = EXCLUDED.severity,
             cwe_id = EXCLUDED.cwe_id,
             severity_text = EXCLUDED.severity_text
@@ -77,7 +76,7 @@ def process_single_file(cur, json_file):
                              severity_text))
     vuln_pk_id = cur.fetchone()[0]
 
-    # --- ЗАПИСЬ В PACKAGES И AFFECTIONS ---
+    # --- ЗАПИСЬ В PACKAGES, AFFECTIONS И AFFECTED_RANGES ---
     for affected_item in raw_json.get("affected", []):
         package_info = affected_item.get("package", {})
         ecosystem = package_info.get("ecosystem")
@@ -96,8 +95,10 @@ def process_single_file(cur, json_file):
         pack_pk_id = cur.fetchone()[0]
 
         pkg_severity = affected_item.get("severity")
-        ranges_json = json.dumps(affected_item.get("ranges", []))
+        ranges = affected_item.get("ranges", [])
+        ranges_json = json.dumps(ranges)
 
+        # Пишем базовую связку в affections
         aff_query = """
             INSERT INTO affections (vuln_id, pack_id, severity, ranges)
             VALUES (%s, %s, %s, %s)
@@ -106,6 +107,33 @@ def process_single_file(cur, json_file):
                 ranges = EXCLUDED.ranges;
         """
         cur.execute(aff_query, (vuln_pk_id, pack_pk_id, pkg_severity, ranges_json))
+
+        # Очищаем старые отрезки версий для этой пары уязвимость-пакет (на случай обновления)
+        cur.execute("""
+            DELETE FROM public.affected_ranges 
+            WHERE vuln_id = %s AND pack_id = %s;
+        """, (vuln_pk_id, pack_pk_id))
+
+        # Разворачиваем все SemVer интервалы в отдельную плоскую таблицу
+        for r_item in ranges:
+            if r_item.get("type") == "SEMVER":
+                introduced_version = None
+                fixed_version = None
+                
+                for event in r_item.get("events", []):
+                    if "introduced" in event:
+                        introduced_version = event["introduced"]
+                    if "fixed" in event:
+                        fixed_version = event["fixed"]
+                
+                # Добавляем в базу, только если указан хотя бы один начальный диапазон
+                if introduced_version is not None:
+                    range_query = """
+                        INSERT INTO public.affected_ranges (
+                            vuln_id, pack_id, introduced_version, fixed_version, status
+                        ) VALUES (%s, %s, %s, %s, 'PENDING');
+                    """
+                    cur.execute(range_query, (vuln_pk_id, pack_pk_id, introduced_version, fixed_version))
 
     return True
 
