@@ -95,6 +95,9 @@ def _prepare_db_data(df: pd.DataFrame, ref_date: str = '2026-05-23', sev_col: st
     return working_df
 
 
+# =================================================================================
+# 1. Метрика: Индекс протухания
+# =================================================================================
 def calc_staleness_index(df: pd.DataFrame, ref_date: str = '2026-05-23') -> float:
     """Индекс протухания (>2 лет без патча)."""
     prepared_df = _prepare_db_data(df, ref_date)
@@ -106,6 +109,9 @@ def calc_staleness_index(df: pd.DataFrame, ref_date: str = '2026-05-23') -> floa
     return round(float((stale_count / len(prepared_df)) * 100), 2)
 
 
+# =================================================================================
+# 2. Метрика: Среднее время жизни
+# =================================================================================
 def calc_avg_unfixed_life(df: pd.DataFrame, ref_date: str = '2026-05-23') -> float:
     """Среднее время жизни (MTTR в днях) незакрытых уязвимостей."""
     prepared_df = _prepare_db_data(df, ref_date)
@@ -116,37 +122,66 @@ def calc_avg_unfixed_life(df: pd.DataFrame, ref_date: str = '2026-05-23') -> flo
     return round(float(ages.mean()), 1) if not ages.empty else 0.0
 
 
-def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-23', sev_col: str = 'vulnerability_severity_text') -> float:
+# =================================================================================
+# 3. Метрика: Интегральный риск заброшенности (ступенчатая оценка)
+# =================================================================================
+def calc_abandonment_risk_score(df: pd.DataFrame, ref_date: str = '2026-05-23') -> float:
     """
-    Логарифмическая метрика риска по всем Affections.
-    Формула: Sum(sev(aff) * ln(patch_gap(aff) + 1)) / |A|
+    Ступенчатый риск заброшенности кодовой базы.
+    Штрафы по интервалам: <6 мес(0.0), >6 мес(1.0), >1 года(2.5), >2 лет(5.0).
     """
-    prepared_df = _prepare_db_data(df, ref_date, sev_col)
+    prepared_df = _prepare_db_data(df, ref_date)
     if prepared_df.empty: return 0.0
-    
-    unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']]
+    unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']].copy()
     if unfixed_df.empty: return 0.0
 
-    # Считаем числитель: Вес * ln(age + 1)
-    active_risk = np.log1p(unfixed_df['age']) * unfixed_df['unfixed_weight_sum']
-    numerator_sum = active_risk.sum()
+    conditions = [
+        (unfixed_df['age'] < 180),
+        (unfixed_df['age'] >= 180) & (unfixed_df['age'] < 365),
+        (unfixed_df['age'] >= 365) & (unfixed_df['age'] < 730),
+        (unfixed_df['age'] >= 730)
+    ]
+    choices = [0.0, 1.0, 2.5, 5.0]
+    unfixed_df['aging_coeff'] = np.select(conditions, choices, default=0.0)
+    unfixed_df['abandonment_penalty'] = unfixed_df['aging_coeff'] * unfixed_df['unfixed_weight_sum']
 
-    abs_A = prepared_df['total_aff'].sum()
-    if abs_A == 0: return 0.0
+    total_penalty = unfixed_df['abandonment_penalty'].sum()
+    total_affections = prepared_df['total_aff'].sum()
 
-    return round(float(numerator_sum / abs_A), 2)
+    return round(float(total_penalty / total_affections), 2) if total_affections > 0 else 0.0
 
 
+# =================================================================================
+# 4. Метрика: Доля критических багов
+# =================================================================================
 def calc_high_severity_ratio(df: pd.DataFrame, sev_col: str = 'vulnerability_severity_text') -> float:
     """Доля критически опасных уязвимостей (>= 7.0 или HIGH/CRITICAL)."""
     prepared_df = _prepare_db_data(df, sev_col=sev_col)
     if prepared_df.empty: return 0.0
     
-    # Ищем баги, чей вес (локальный или глобальный) оказался >= 7.0
     dangerous_count = ((prepared_df['unfixed_weight_sum'] >= 7.0) & prepared_df['is_unfixed_vuln']).sum()
     return round(float((dangerous_count / len(prepared_df)) * 100), 2)
 
 
+# =================================================================================
+# 5. Метрика: Плотность дефектов
+# =================================================================================
+def calc_defect_density(df: pd.DataFrame, pkg_col: str = 'package_name') -> float:
+    """Плотность дефектов (уязвимостей на один уникальный пакет)."""
+    prepared_df = _prepare_db_data(df)
+    if prepared_df.empty: return 0.0
+
+    if pkg_col in prepared_df.columns and prepared_df[pkg_col].nunique() > 0:
+        unique_packages = prepared_df[pkg_col].nunique()
+    else:
+        unique_packages = 1
+
+    return round(float(len(prepared_df) / unique_packages), 2) if unique_packages > 0 else 0.0
+
+
+# =================================================================================
+# 6. Метрика: Индекс регрессии кода
+# =================================================================================
 def calc_regression_rate(df: pd.DataFrame) -> float:
     """Индекс регрессии кода (Bug Bounce Rate)."""
     prepared_df = _prepare_db_data(df)
