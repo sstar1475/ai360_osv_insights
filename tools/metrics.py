@@ -3,8 +3,7 @@ import numpy as np
 
 def prepare_db_data(df: pd.DataFrame, ref_date: str, sev_col: str = 'severity') -> pd.DataFrame:
     """
-    Выполняет сквозную предобработку сырого датасета из PostgreSQL (jsonb).
-    Определяет статус уязвимости строго по последнему хронологическому событию.
+    Выполняет первичную подготовку и обогащение сырого датасета из PostgreSQL
     """
     if df.empty:
         return pd.DataFrame()
@@ -62,12 +61,10 @@ def prepare_db_data(df: pd.DataFrame, ref_date: str, sev_col: str = 'severity') 
             if not isinstance(aff, dict):
                 continue
 
-            # Извлекаем имя пакета для корректного подсчета плотности дефектов
             pkg_name = aff.get('package', {}).get('name')
             if pkg_name:
                 extracted_packages.append(pkg_name)
 
-            # Собираем все события в единый хронологический трек
             all_events = []
             ranges = aff.get('ranges', [])
             for r in ranges:
@@ -78,12 +75,11 @@ def prepare_db_data(df: pd.DataFrame, ref_date: str, sev_col: str = 'severity') 
             is_fixed = False
             intro_count = 0
 
-            # Анализируем реальный порядок событий
             for e in all_events:
                 if not isinstance(e, dict): continue
                 if 'introduced' in e:
                     intro_count += 1
-                    is_fixed = False  # Новое появление сбрасывает статус фикса
+                    is_fixed = False
                 if 'fixed' in e:
                     is_fixed = True
 
@@ -118,11 +114,12 @@ def prepare_db_data(df: pd.DataFrame, ref_date: str, sev_col: str = 'severity') 
     return working_df
 
 
-# =====================================================================
-# ВЫЧИСЛИТЕЛЬНЫЕ МОДУЛИ (Принимают уже ГОТОВЫЙ prepared_df)
-# =====================================================================
-
 def calc_abandonment_risk_score(prepared_df: pd.DataFrame) -> float:
+    """
+    Вычисляет интегральный риск заброшенности кодовой базы (Aging Risk Matrix).
+    Штрафует проект на основе веса открытых уязвимостей и длительности отсутствия патча
+    по временным интервалам: до полугода, до года, до двух лет и более двух лет.
+    """
     if prepared_df.empty: return 0.0
     unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']].copy()
     if unfixed_df.empty: return 0.0
@@ -144,6 +141,11 @@ def calc_abandonment_risk_score(prepared_df: pd.DataFrame) -> float:
 
 
 def calc_staleness_index(prepared_df: pd.DataFrame) -> float:
+    """
+    Вычисляет индекс протухания зависимостей экосистемы.
+    Возвращает процентный показатель (0-100%) активных уязвимостей,
+    которые остаются неисправленными в коде дольше двух лет.
+    """
     if prepared_df.empty: return 0.0
     unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']]
     if unfixed_df.empty: return 0.0
@@ -153,6 +155,9 @@ def calc_staleness_index(prepared_df: pd.DataFrame) -> float:
 
 
 def calc_avg_unfixed_life(prepared_df: pd.DataFrame) -> float:
+    """
+    Вычисляет среднее время жизни (MTTR) незакрытых дефектов безопасности.
+    """
     if prepared_df.empty: return 0.0
     unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']]
     ages = unfixed_df['age'].dropna()
@@ -161,7 +166,10 @@ def calc_avg_unfixed_life(prepared_df: pd.DataFrame) -> float:
 
 
 def calc_high_severity_ratio(prepared_df: pd.DataFrame, sev_col: str = 'severity') -> float:
-    """Вычисляет долю критически опасных уязвимостей (>= 7.0 или HIGH/CRITICAL)"""
+    """
+    Вычисляет долю критически опасных уязвимостей в общей массе рисков.
+    Определяет процент дефектов с уровнем критичности >= 7.0 (категории HIGH и CRITICAL).
+    """
     if prepared_df.empty: return 0.0
 
     def is_dangerous_cve(row) -> bool:
@@ -173,7 +181,6 @@ def calc_high_severity_ratio(prepared_df: pd.DataFrame, sev_col: str = 'severity
                 pass
             if any(k in str(global_sev).upper() for k in ['HIGH', 'CRITICAL']): return True
 
-        # Если глобального статуса нет, проверяем накопленный вес открытых веток
         return row.get('unfixed_weight_sum', 0.0) >= 7.0
 
     dangerous_count = prepared_df.apply(is_dangerous_cve, axis=1).sum()
@@ -181,13 +188,15 @@ def calc_high_severity_ratio(prepared_df: pd.DataFrame, sev_col: str = 'severity
 
 
 def calc_defect_density(prepared_df: pd.DataFrame, pkg_col: str = 'package_name') -> float:
+    """
+    Возвращает среднее количество зарегистрированных уязвимостей,
+    приходящихся на один уникальный программный пакет.
+    """
     if prepared_df.empty: return 0.0
 
-    # Пытаемся взять имена пакетов из плоской колонки, либо извлеченные из jsonb структуры
     if pkg_col in prepared_df.columns and prepared_df[pkg_col].nunique() > 0:
         unique_packages = prepared_df[pkg_col].nunique()
     else:
-        # Извлекаем уникальные имена из вложенных списков
         all_pkgs = set()
         for p_list in prepared_df['extracted_packages'].dropna():
             all_pkgs.update(p_list)
@@ -197,5 +206,10 @@ def calc_defect_density(prepared_df: pd.DataFrame, pkg_col: str = 'package_name'
 
 
 def calc_regression_rate(prepared_df: pd.DataFrame) -> float:
+    """
+    Вычисляет индекс повторного появления уязвимостей (Bug Bounce Rate).
+    Показывает процент дефектов, которые были успешно исправлены в прошлых релизах,
+    но из-за ошибок версионирования или слияния кода вернулись в последующих версиях.
+    """
     if prepared_df.empty: return 0.0
     return round(float((prepared_df['has_regression'].sum() / len(prepared_df)) * 100), 2)
