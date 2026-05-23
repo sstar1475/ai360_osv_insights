@@ -56,105 +56,86 @@ ALL_METRICS = {
 # Цвета для трасс разных метрик
 COLORS = [ALL_METRICS[metric]['color'] for metric in ALL_METRICS.keys()]
 
-# ---------- Вспомогательная функция для маппинга severity ----------
-def map_severity(score):
-    """Преобразует числовой CVSS score в категорию severity."""
-    if pd.isna(score):
-        return 'UNKNOWN'
-    if score >= 9.0:
-        return 'CRITICAL'
-    elif score >= 7.0:
-        return 'HIGH'
-    elif score >= 4.0:
-        return 'MEDIUM'
-    elif score >= 0.1:
-        return 'LOW'
-    else:
-        return 'NONE'
 
-# ---------- Новая функция: Stacked Bar Chart ----------
 def create_stacked_bar_chart(df_report, group_by='ecosystem', normalized=False):
-    """
-    Строит многослойную столбчатую диаграмму распределения уязвимостей
-    по уровням severity.
-
-    Параметры:
-    - df_report: DataFrame с данными OSV
-    - group_by: 'ecosystem' (группировка по экосистемам) или
-                'cwe_class' (группировка по CWE pillar)
-    - normalized: если True, столбцы нормализованы до 100% внутри каждой группы
-    """
-    # Подготовка данных
     data = df_report.copy()
 
-    # Определяем столбец severity: если есть 'severity', используем его,
-    # иначе пытаемся получить из 'cvss_score'. Если нет ни того, ни другого – создаём 'UNKNOWN'
-    if 'severity' not in data.columns:
-        if 'cvss_score' in data.columns:
-            data['severity'] = data['cvss_score'].apply(map_severity)
-        else:
-            data['severity'] = 'UNKNOWN'  # ← вместо выхода с сообщением
+    # Фильтруем: только GHSA и 4 экосистемы
+    data = data[
+        (data['vulnerability_id'].str.startswith('GHSA')) &
+        (data['package_ecosystem'].isin(['PyPI', 'npm', 'Go', 'Maven']))
+        ]
 
-    # Определяем столбец группировки
+    # ----- 1. Severity -----
+    data['severity'] = data['vulnerability_severity_text'].replace({'MODERATE': 'MEDIUM'}).fillna('UNKNOWN')
+    severity_mapping = {'LOW': 'LOW', 'MEDIUM': 'MEDIUM', 'HIGH': 'HIGH', 'CRITICAL': 'CRITICAL', 'UNKNOWN': 'UNKNOWN'}
+    data['severity'] = data['severity'].map(lambda x: severity_mapping.get(str(x).upper(), 'UNKNOWN'))
+
+    # ----- 2. Группировка -----
     if group_by == 'ecosystem':
-        group_col = 'ecosystem'  # или 'package_ecosystem', в зависимости от реальной схемы
-        if group_col not in data.columns:
-            # попробуем альтернативные названия
-            for col in ['ecosystem', 'package_ecosystem', 'ecosystem_name']:
-                if col in data.columns:
-                    group_col = col
-                    break
-            else:
-                # если экосистема совсем отсутствует, создаём заглушку
-                data['ecosystem'] = 'Unknown'
-                group_col = 'ecosystem'
+        group_col = 'package_ecosystem'
     elif group_by == 'cwe_class':
-        if 'cwe_id' not in data.columns:
-            data['cwe_id'] = 'Unknown'
-        # Извлекаем класс CWE (первые символы до тире, например 'CWE-1000' -> '1000')
-        data['cwe_class'] = data['cwe_id'].astype(str).str.extract(r'CWE-(\d+)')
-        # Для pillar можно оставить полный номер или взять только первую цифру,
-        # здесь используем полный CWE ID как класс
-        group_col = 'cwe_class'
+        data['cwe_first'] = data['vulnerability_cwe_id'].astype(str).str.split('|').str[0].str.strip()
+        data['cwe_pillar'] = data['cwe_first'].str.extract(r'(\d)')[0].fillna('?')
+        pillar_names = {
+            '1': '1: Архитектура', '2': '2: Обработка данных', '3': '3: Управление',
+            '4': '4: Ресурсы', '5': '5: Защита', '6': '6: Время/состояние',
+            '7': '7: Взаимодействия', '8': '8: Качество кода', '9': '9: Среда', '0': '0: Прочее'
+        }
+        data['cwe_pillar'] = data['cwe_pillar'].map(pillar_names).fillna('?: Прочее')
+        group_col = 'cwe_pillar'
     else:
-        raise ValueError("group_by должен быть 'ecosystem' или 'cwe_class'")
+        group_col = 'package_ecosystem'
 
-    # Группируем и считаем количество
+    # ----- 3. Подсчёт -----
     grouped = data.groupby([group_col, 'severity']).size().reset_index(name='count')
+    grouped = grouped[grouped['count'] > 0]
 
-    # Если нормализация, преобразуем в проценты внутри каждой группы
     if normalized:
         totals = grouped.groupby(group_col)['count'].transform('sum')
         grouped['count'] = (grouped['count'] / totals) * 100
 
-    # Строим stacked bar
-    severity_order = ['NONE', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'UNKNOWN']
+    # ----- 4. Порядок -----
+    group_order = grouped.groupby(group_col)['count'].sum().sort_values(ascending=False).index.tolist()
+
+    # ----- 5. Цвета -----
+    severity_order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'UNKNOWN']
     severity_colors = {
-        'NONE': '#b0bec5', 'LOW': '#66bb6a', 'MEDIUM': '#ffa726',
-        'HIGH': '#ef5350', 'CRITICAL': '#ab47bc', 'UNKNOWN': '#78909c'
+        'LOW': '#66bb6a',  # зелёный
+        'MEDIUM': '#2196F3',  # синий
+        'HIGH': '#9C27B0',  # фиолетовый
+        'CRITICAL': '#ef5350',  # красный
+        'UNKNOWN': '#bdbdbd'  # серый
     }
 
+    # ----- 6. График -----
     fig = go.Figure()
     for sev in severity_order:
         sub = grouped[grouped['severity'] == sev]
         if sub.empty:
             continue
+        sub_dict = dict(zip(sub[group_col], sub['count']))
+        y_values = [sub_dict.get(g, 0) for g in group_order]
+
         fig.add_trace(go.Bar(
-            name=sev,
-            x=sub[group_col],
-            y=sub['count'],
+            name=sev, x=group_order, y=y_values,
             marker_color=severity_colors.get(sev, '#9e9e9e'),
-            hovertemplate='%{x}<br>%{y:.1f}' + ('%' if normalized else '') + '<extra>%{name}</extra>'
+            marker_line=dict(color='white', width=0.5),
+            text=[f'{v:.1f}%' if normalized and v > 3 else (f'{int(v):,}' if v > 0 else '') for v in y_values],
+            textposition='inside', textfont=dict(size=10, color='white'), insidetextanchor='middle'
         ))
+
+    title_text = f"Распределение уязвимостей по severity<br><sup>{'Нормировано (100%)' if normalized else 'Абсолютные значения'}</sup>"
 
     fig.update_layout(
         barmode='stack',
-        title=f"Распределение уязвимостей по severity ({'нормировано' if normalized else 'абсолютные значения'})",
-        xaxis_title="Группа",
-        yaxis_title="Процент уязвимостей" if normalized else "Количество уязвимостей",
-        template="plotly_white",
-        height=500,
-        legend_title="Severity"
+        title=dict(text=title_text, font=dict(size=16), x=0.5),
+        xaxis=dict(title=None, tickangle=0, categoryorder='array', categoryarray=group_order),
+        yaxis=dict(title='Процент' if normalized else 'Количество', ticksuffix='%' if normalized else '',
+                   gridcolor='rgba(0,0,0,0.08)'),
+        template='plotly_white', height=500,
+        legend=dict(title='Severity', orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5),
+        hoverlabel=dict(bgcolor='white', font_size=12), margin=dict(t=80, b=60)
     )
 
     return fig
