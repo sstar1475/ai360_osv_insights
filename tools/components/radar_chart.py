@@ -26,7 +26,7 @@ def create_radar_chart() -> html.Div:
                 dcc.Checklist(
                     id='radar-metric-checklist',
                     options=[{'label': info['label'], 'value': key} for key, info in ALL_METRICS.items()],
-                    value=['metric_1'],
+                    value=['metric_1', 'metric_3', 'metric_4'],
                     inline=False,
                     labelStyle={'display': 'block', 'margin': '8px 0', 'color': '#34495e', 'fontSize': '15px',
                                 'cursor': 'pointer'}
