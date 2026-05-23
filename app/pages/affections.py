@@ -8,7 +8,7 @@ dash.register_page(__name__, path='/affections', name='Vulnerabilities and Affec
 
 placeholder_card_style = {
     'width': '46%',
-    'minHeight': '150px', # Высота пустых прямоугольников уменьшена с 280px до 150px
+    'minHeight': '150px',
     'backgroundColor': '#ffffff',
     'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
     'borderRadius': '16px',
@@ -38,7 +38,7 @@ real_card_style = {
     'backgroundColor': '#ffffff',
     'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
     'borderRadius': '16px',
-    'padding': '25px', # Уменьшен отступ для компактного схлопывания карточки
+    'padding': '25px',
     'boxSizing': 'border-box',
     'marginBottom': '25px'
 }
@@ -58,11 +58,6 @@ layout = html.Div([
 
     html.Div([
         html.Div(create_radar_chart(), style=real_card_style),
-        html.Div(create_stacked_bar_chart(), style=real_card_style),
-
-        html.Div([
-            html.Div("Connected Scatter Plot Analytics...", style=placeholder_card_style),
-            html.Div("Patch Gap Timeline Chart...", style=placeholder_card_style),
-        ], style=grid_container_style)
+        html.Div(create_stacked_bar_chart(), style=real_card_style)
     ])
 ])
