@@ -31,6 +31,7 @@ def get_highest_parents_for_view(xml_path, target_view="1000"):
     return parents_map, kids_map
 
 Parents, Kids = get_highest_parents_for_view(XML_path, target_view="1000")
+Kids['1000'] = {"284", "435", "664", "682", "691", "693", "697", "703", "707", "710"}
 
 def get_all_ancestors(cwe_id: str, parents: dict[str, list[str]], height: int = 0) -> list[tuple[str, int]]:
     ans = []

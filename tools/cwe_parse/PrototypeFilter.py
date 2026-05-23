@@ -1,6 +1,10 @@
 import asyncio
 import sys
 import pandas as pd
+
+from pathlib import Path
+parent_path = Path(__file__).resolve().parent
+sys.path.insert(0, str(parent_path))
 from .cwe_parse import CWENode
 
 def filter(df_report: pd.DataFrame, cwe_id: str)->pd.DataFrame:
@@ -13,4 +17,5 @@ def filter(df_report: pd.DataFrame, cwe_id: str)->pd.DataFrame:
     return df_report[df_report["vulnerability_cwe_id"].isin(kids)]
 def get_children(cwe_id: str):
     node = CWENode(cwe_id)
-    return node.get_descendants()
+    return node.get_descendants("1")
+get_children("1000")

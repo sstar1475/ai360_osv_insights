@@ -2,3 +2,7 @@
 .env
 *.log
 venv/
+<<<<<<< Updated upstream
+=======
+.idea/
+>>>>>>> Stashed changes
