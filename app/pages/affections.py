@@ -2,6 +2,7 @@ import dash
 from dash import html
 
 from tools.components.radar_chart import create_radar_chart
+from tools.components.stacked_bar import create_stacked_bar_chart
 
 dash.register_page(__name__, path='/affections', name='Vulnerability Analysis')
 
@@ -58,11 +59,11 @@ layout = html.Div([
     html.Div([
         html.Div(create_radar_chart(), style=real_card_style),
 
+        html.Div(create_stacked_bar_chart(), style=real_card_style),
+
         html.Div([
             html.Div("Connected Scatter Plot Analytics...", style=placeholder_card_style),
-            html.Div("Severity Density Distributions...", style=placeholder_card_style),
             html.Div("Patch Gap Timeline Chart...", style=placeholder_card_style),
-            html.Div("Stacked Bar Proportional Histograms...", style=placeholder_card_style),
         ], style=grid_container_style)
     ])
 ])

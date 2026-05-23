@@ -1,7 +1,7 @@
 import plotly.graph_objects as go
 
 from tools.config.metrics import ALL_METRICS
-from tools.config.radar_chart import RADAR_LAYOUT
+from tools.config.chart import RADAR_LAYOUT
 from tools.metrics import normalize
 from tools.cwe_parse.XMLConfigure import get_cwe_info
 from tools.cwe_parse.PrototypeFilter import filter as cwe_filter, get_children

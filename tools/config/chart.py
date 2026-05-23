@@ -36,3 +36,32 @@ RADAR_LAYOUT = dict(
     ),
     margin=dict(t=40, b=40, l=20, r=20)
 )
+
+SEVERITY_COLORS = {
+    'LOW': '#66bb6a',       # Зеленый
+    'MEDIUM': '#2196F3',    # Синий
+    'HIGH': '#9C27B0',      # Фиолетовый
+    'CRITICAL': '#ef5350',  # Красный
+    'UNKNOWN': '#bdbdbd'    # Серый
+}
+
+# Шаблон (Layout) для Stacked Bar Chart
+STACKED_BAR_LAYOUT = dict(
+    barmode='stack',
+    template='plotly_white',
+    height=550,
+    font=BASE_FONT,
+    legend=dict(
+        title_text='Severity Level',
+        orientation='h',
+        yanchor='bottom',
+        y=1.02,
+        xanchor='center',
+        x=0.5,
+        font=dict(size=14)
+    ),
+    hoverlabel=dict(bgcolor='white', font_size=13),
+    margin=dict(t=60, b=60, l=60, r=40),
+    paper_bgcolor="#fdfdfe",
+    plot_bgcolor="#fdfdfe"
+)
