@@ -1,6 +1,3 @@
-/* assets/custom.css */
-
-/* Анимация подчеркивания для ссылок навигационной панели */
 .nav-link {
     position: relative;
     text-decoration: none;
@@ -54,6 +51,49 @@
 
 /* При наведении на ЛЮБУЮ часть карточки, линия под заголовком разъезжается в стороны */
 .card-link:hover .card-header::after {
+    width: 100%;
+    left: 0;
+}
+
+.collapsible-content {
+    max-height: 2000px; /* Запас по высоте для раскрытого состояния */
+    opacity: 1;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-top 0.4s ease;
+}
+
+/* Скрытое состояние */
+.collapsible-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    pointer-events: none; /* Отключаем клики, когда график скрыт */
+}
+
+/* Интерактивный заголовок H3 */
+.collapsible-header {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    user-select: none; /* Запрещаем выделение текста при быстрых кликах */
+    transition: color 0.3s ease;
+}
+
+/* Оранжевая полоска подчеркивания */
+.collapsible-header::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 3px;
+    bottom: -5px;
+    left: 50%;
+    background-color: #e67e22;
+    transition: width 0.3s ease-in-out, left 0.3s ease-in-out;
+}
+
+/* Полоска разъезжается при наведении или если график РАСКРЫТ (класс active) */
+.collapsible-header:hover::after,
+.collapsible-header.active::after {
     width: 100%;
     left: 0;
 }

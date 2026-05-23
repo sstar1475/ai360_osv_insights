@@ -2,7 +2,6 @@ import os
 import sys
 import subprocess
 import venv
-import time
 from pathlib import Path
 
 REQUIRED_PACKAGES = ["paramiko", "scp"]

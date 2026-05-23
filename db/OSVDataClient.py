@@ -5,12 +5,12 @@ from typing import Optional
 import asyncpg
 import asyncio
 import pandas as pd
-import paramiko
 from dotenv import load_dotenv
 from sshtunnel import SSHTunnelForwarder
+import paramiko
 
 if not hasattr(paramiko, "DSSKey"):
-    setattr(paramiko, "DSSKey", None)
+    paramiko.DSSKey = None
 
 warnings.filterwarnings('ignore', category=UserWarning)
 

@@ -1,11 +1,10 @@
-import asyncio
 import sys
 import pandas as pd
 
 from pathlib import Path
 parent_path = Path(__file__).resolve().parent
 sys.path.insert(0, str(parent_path))
-from .cwe_parse import CWENode
+from tools.cwe_parse.cwe_parse import CWENode
 
 def filter(df_report: pd.DataFrame, cwe_id: str)->pd.DataFrame:
     node = CWENode(cwe_id)

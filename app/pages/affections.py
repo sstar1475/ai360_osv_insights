@@ -1,9 +1,9 @@
-# pages/affections.py
-#!/usr/bin/env python3.13
 import dash
 from dash import html
 
-dash.register_page(__name__, path='/affections', name='Vulnerabilities and Affections Analysis')
+from tools.components.radar_chart import create_radar_chart
+
+dash.register_page(__name__, path='/affections', name='Vulnerability Analysis')
 
 placeholder_card_style = {
     'width': '46%',
@@ -32,9 +32,19 @@ grid_container_style = {
     'padding': '10px'
 }
 
+real_card_style = {
+    'width': '100%',
+    'backgroundColor': '#ffffff',
+    'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
+    'borderRadius': '16px',
+    'padding': '30px',
+    'boxSizing': 'border-box',
+    'marginBottom': '30px'
+}
+
 layout = html.Div([
     html.H1(
-        "Vulnerabilities and Affections Analysis", 
+        "Vulnerability & Affection Analysis", 
         style={
             'textAlign': 'center', 
             'color': '#2c3e50', 
@@ -45,11 +55,14 @@ layout = html.Div([
         }
     ),
 
-    # Сетка для графиков
     html.Div([
-        html.Div("Радарная диаграмма метрик...", style=placeholder_card_style),
-        html.Div("Connected Scatter Plot...", style=placeholder_card_style),
-        html.Div("Распределение по Severity...", style=placeholder_card_style),
-        html.Div("Patch Gap Analysis...", style=placeholder_card_style),
-    ], style=grid_container_style)
+        html.Div(create_radar_chart(), style=real_card_style),
+
+        html.Div([
+            html.Div("Connected Scatter Plot Analytics...", style=placeholder_card_style),
+            html.Div("Severity Density Distributions...", style=placeholder_card_style),
+            html.Div("Patch Gap Timeline Chart...", style=placeholder_card_style),
+            html.Div("Stacked Bar Proportional Histograms...", style=placeholder_card_style),
+        ], style=grid_container_style)
+    ])
 ])

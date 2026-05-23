@@ -1,5 +1,3 @@
-# pages/packages.py
-#!/usr/bin/env python3.13
 import dash
 from dash import html
 

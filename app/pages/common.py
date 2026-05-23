@@ -1,11 +1,8 @@
-# pages/common.py
-#!/usr/bin/env python3.13
 import dash
 from dash import html
 
 dash.register_page(__name__, path='/common', name='Common Statistics')
 
-# Единый стиль для плейсхолдеров графиков (в виде красивых белых карточек с тенью)
 placeholder_card_style = {
     'width': '46%',
     'minHeight': '280px',

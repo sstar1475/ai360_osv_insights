@@ -1,11 +1,8 @@
-#!/usr/bin/env python3.13
-# pages/terminology.py
 import dash
 from dash import html
 
 dash.register_page(__name__, path='/terminology', name='Terminology')
 
-# Стили для контента (сохраняют единый дизайн-код приложения)
 h2_style = {
     'color': '#e67e22',
     'fontFamily': "'Montserrat', sans-serif",

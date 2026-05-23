@@ -1,15 +1,29 @@
-#!/usr/bin/env python3.13
-# app.py
 import dash
 from dash import html, dcc, Input, Output
+from pathlib import Path
+from db.OSVDataClient import OSVDataClient
 
 external_stylesheets = [
     'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Open+Sans:wght@400;600&display=swap'
 ]
+print("[*] Connecting to database and initializing global OSV DataFrame...")
 
-app = dash.Dash(__name__, use_pages=True, external_stylesheets=external_stylesheets)
+DB_CLIENT = OSVDataClient()
+df_report = DB_CLIENT.get_detailed_report()
 
-# Базовые стили для ссылок
+print(f"[+] Global DataFrame loaded successfully. Total rows cached: {len(df_report)}")
+
+
+pages_path = Path(__file__).parent / 'pages'
+
+app = dash.Dash(
+    __name__,
+    use_pages=True,
+    pages_folder=str(pages_path),
+    external_stylesheets=external_stylesheets
+)
+
+
 nav_link_style = {
     "display": "inline-block",
     "margin": "0 20px",
@@ -21,10 +35,8 @@ nav_link_style = {
 }
 
 app.layout = html.Div([
-    # dcc.Location слушает изменение URL в реальном времени без перезагрузки страницы
     dcc.Location(id='url', refresh=False),
 
-    # Контейнер навигационной панели (заполняется динамически через коллбэк)
     html.Div(
         id='nav-panel',
         style={
@@ -37,7 +49,6 @@ app.layout = html.Div([
         }
     ),
 
-    # Контейнер для отображения страниц
     html.Div(
         dash.page_container,
         style={
@@ -54,7 +65,6 @@ app.layout = html.Div([
 })
 
 
-# Коллбэк, который перерисовывает меню при каждом переходе по страницам
 @app.callback(
     Output('nav-panel', 'children'),
     Input('url', 'pathname')
@@ -62,8 +72,6 @@ app.layout = html.Div([
 def update_navigation_menu(current_pathname):
     menu_links = []
     for page in dash.page_registry.values():
-        # Если текущий путь в браузере совпадает с путем страницы,
-        # добавляем к классам 'active'
         is_active = current_pathname == page["relative_path"]
         class_names = "nav-link active" if is_active else "nav-link"
 
@@ -76,7 +84,3 @@ def update_navigation_menu(current_pathname):
             )
         )
     return menu_links
-
-
-if __name__ == '__main__':
-    app.run(debug=True, port=8050)

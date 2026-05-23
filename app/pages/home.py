@@ -1,5 +1,3 @@
-#!/usr/bin/env python3.13
-# pages/home.py
 import dash
 from dash import html, dcc
 
