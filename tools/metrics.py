@@ -144,3 +144,12 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
         return 0.0
 
     return round(float(numerator_sum / abs_A), 2)
+
+
+from math import log2
+
+
+def normalize(values: list[float], total_pr: float = 1) -> list[float]:
+    mx = max(values, default=1)
+    norm = mx * total_pr
+    return [log2(1 + el / mx) for el in values]
