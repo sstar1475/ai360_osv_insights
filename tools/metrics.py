@@ -1,119 +1,6 @@
 import pandas as pd
 import numpy as np
 
-def prepare_db_data(df: pd.DataFrame, ref_date: str, sev_col: str = 'severity') -> pd.DataFrame:
-    """
-    Выполняет первичную подготовку и обогащение сырого датасета из PostgreSQL
-    """
-    if df.empty:
-        return pd.DataFrame()
-
-    working_df = df.copy()
-
-    def extract_weight(sev_val) -> float:
-        if sev_val is None or (isinstance(sev_val, float) and np.isnan(sev_val)):
-            return 1.0
-
-        if isinstance(sev_val, list):
-            for item in sev_val:
-                if isinstance(item, dict) and 'score' in item:
-                    score_str = str(item['score']).strip()
-                    if '/' not in score_str:
-                        try:
-                            return float(score_str)
-                        except ValueError:
-                            pass
-            return 1.0
-
-        sev_str = str(sev_val).strip().upper()
-        try:
-            numeric = float(sev_str)
-            if numeric > 0: return numeric
-        except ValueError:
-            pass
-
-        weights = {'CRITICAL': 10.0, 'HIGH': 7.0, 'MODERATE': 4.0, 'MEDIUM': 4.0, 'LOW': 1.0}
-        for k, v in weights.items():
-            if k in sev_str:
-                return v
-        return 1.0
-
-    working_df['global_weight'] = working_df.get(sev_col, pd.Series([1.0] * len(working_df))).apply(extract_weight)
-
-    def parse_row(row) -> pd.Series:
-        col_name = 'affected' if 'affected' in row.index else 'affected_ranges'
-        affected_list = row.get(col_name)
-        global_w = row.get('global_weight', 1.0)
-
-        if not isinstance(affected_list, list) or len(affected_list) == 0:
-            return pd.Series({
-                'total_aff': 1, 'unfixed_aff': 1, 'is_unfixed_vuln': True,
-                'has_regression': False, 'unfixed_weight_sum': global_w, 'extracted_packages': []
-            })
-
-        total_aff = len(affected_list)
-        unfixed_aff = 0
-        has_regression = False
-        unfixed_weight_sum = 0.0
-        extracted_packages = []
-
-        for aff in affected_list:
-            if not isinstance(aff, dict):
-                continue
-
-            pkg_name = aff.get('package', {}).get('name')
-            if pkg_name:
-                extracted_packages.append(pkg_name)
-
-            all_events = []
-            ranges = aff.get('ranges', [])
-            for r in ranges:
-                events = r.get('events', [])
-                if isinstance(events, list):
-                    all_events.extend(events)
-
-            is_fixed = False
-            intro_count = 0
-
-            for e in all_events:
-                if not isinstance(e, dict): continue
-                if 'introduced' in e:
-                    intro_count += 1
-                    is_fixed = False
-                if 'fixed' in e:
-                    is_fixed = True
-
-            if not is_fixed:
-                unfixed_aff += 1
-                local_sev = aff.get('database_specific', {}).get('severity')
-                branch_weight = extract_weight(local_sev) if local_sev else global_w
-                unfixed_weight_sum += branch_weight
-
-            if intro_count > 1:
-                has_regression = True
-
-        return pd.Series({
-            'total_aff': total_aff,
-            'unfixed_aff': unfixed_aff,
-            'is_unfixed_vuln': unfixed_aff > 0,
-            'has_regression': has_regression,
-            'unfixed_weight_sum': unfixed_weight_sum,
-            'extracted_packages': extracted_packages
-        })
-
-    stats = working_df.apply(parse_row, axis=1)
-    working_df = pd.concat([working_df, stats], axis=1)
-
-    if 'published' in working_df.columns:
-        published = pd.to_datetime(working_df['published'], errors='coerce', utc=True)
-        current = pd.to_datetime(ref_date, utc=True)
-        working_df['age'] = (current - published).dt.days.fillna(0).clip(lower=0)
-    else:
-        working_df['age'] = 0.0
-
-    return working_df
-
-
 def calc_abandonment_risk_score(prepared_df: pd.DataFrame) -> float:
     """
     Вычисляет интегральный риск заброшенности кодовой базы (Aging Risk Matrix).
@@ -143,8 +30,8 @@ def calc_abandonment_risk_score(prepared_df: pd.DataFrame) -> float:
 def calc_staleness_index(prepared_df: pd.DataFrame) -> float:
     """
     Вычисляет индекс протухания зависимостей экосистемы.
-    Возвращает процентный показатель (0-100%) активных уязвимостей,
-    которые остаются неисправленными в коде дольше двух лет.
+    Возвращает процентный показатель активных уязвимостей, которые остаются 
+    неисправными в кодовой базе дольше двух лет (730 дней).
     """
     if prepared_df.empty: return 0.0
     unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']]
@@ -156,7 +43,8 @@ def calc_staleness_index(prepared_df: pd.DataFrame) -> float:
 
 def calc_avg_unfixed_life(prepared_df: pd.DataFrame) -> float:
     """
-    Вычисляет среднее время жизни (MTTR) незакрытых дефектов безопасности.
+    Вычисляет среднее время жизни (MTTR в днях) незакрытых дефектов безопасности.
+    Показывает среднюю длительность нахождения активных уязвимостей в системе без исправлений.
     """
     if prepared_df.empty: return 0.0
     unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']]
@@ -167,8 +55,9 @@ def calc_avg_unfixed_life(prepared_df: pd.DataFrame) -> float:
 
 def calc_high_severity_ratio(prepared_df: pd.DataFrame, sev_col: str = 'severity') -> float:
     """
-    Вычисляет долю критически опасных уязвимостей в общей массе рисков.
-    Определяет процент дефектов с уровнем критичности >= 7.0 (категории HIGH и CRITICAL).
+    Вычисляет долю критически опасных уязвимостей в общей массе рисков экосистемы.
+    Определяет процент дефектов с уровнем критичности >= 7.0 (категории HIGH и CRITICAL) 
+    на основе приоритетной проверки глобальных и локальных метрик.
     """
     if prepared_df.empty: return 0.0
 
@@ -189,8 +78,9 @@ def calc_high_severity_ratio(prepared_df: pd.DataFrame, sev_col: str = 'severity
 
 def calc_defect_density(prepared_df: pd.DataFrame, pkg_col: str = 'package_name') -> float:
     """
-    Возвращает среднее количество зарегистрированных уязвимостей,
-    приходящихся на один уникальный программный пакет.
+    Вычисляет плотность дефектов безопасности (Defect Density).
+    Возвращает среднее количество зарегистрированных уязвимостей, приходящихся 
+    на один уникальный программный пакет, извлеченный из метаданных.
     """
     if prepared_df.empty: return 0.0
 
@@ -198,7 +88,7 @@ def calc_defect_density(prepared_df: pd.DataFrame, pkg_col: str = 'package_name'
         unique_packages = prepared_df[pkg_col].nunique()
     else:
         all_pkgs = set()
-        for p_list in prepared_df['extracted_packages'].dropna():
+        for p_list in prepared_df.get('extracted_packages', pd.Series(dtype=object)).dropna():
             all_pkgs.update(p_list)
         unique_packages = len(all_pkgs)
 
@@ -208,8 +98,12 @@ def calc_defect_density(prepared_df: pd.DataFrame, pkg_col: str = 'package_name'
 def calc_regression_rate(prepared_df: pd.DataFrame) -> float:
     """
     Вычисляет индекс повторного появления уязвимостей (Bug Bounce Rate).
-    Показывает процент дефектов, которые были успешно исправлены в прошлых релизах,
-    но из-за ошибок версионирования или слияния кода вернулись в последующих версиях.
+    Показывает процент дефектов, которые были исправлены мейнтейнерами в прошлых 
+    релизах, но ошибочно вернулись в последующих версиях программного обеспечения.
     """
     if prepared_df.empty: return 0.0
+    
+    # Защита на случай, если колонка has_regression не была передана
+    if 'has_regression' not in prepared_df.columns: return 0.0
+        
     return round(float((prepared_df['has_regression'].sum() / len(prepared_df)) * 100), 2)
