@@ -1,0 +1,59 @@
+/* assets/custom.css */
+
+/* Анимация подчеркивания для ссылок навигационной панели */
+.nav-link {
+    position: relative;
+    text-decoration: none;
+}
+
+.nav-link::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -6px;
+    left: 50%;
+    background-color: #2980b9;
+    transition: width 0.3s ease-in-out, left 0.3s ease-in-out;
+}
+
+.nav-link:hover::after {
+    width: 100%;
+    left: 0;
+}
+
+/* НОВОЕ: Состояние активной страницы (линия всегда развернута) */
+.nav-link.active::after {
+    width: 100%;
+    left: 0;
+}
+/* Настройки для карточек на главной странице */
+.card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    height: 100%;
+}
+
+.card-header {
+    position: relative;
+    display: inline-block;
+}
+
+/* Изначально ширина линии 0, она спрятана в центре (left: 50%) */
+.card-header::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 3px;
+    bottom: -5px;
+    left: 50%;
+    background-color: #e67e22;
+    transition: width 0.3s ease-in-out, left 0.3s ease-in-out;
+}
+
+/* При наведении на ЛЮБУЮ часть карточки, линия под заголовком разъезжается в стороны */
+.card-link:hover .card-header::after {
+    width: 100%;
+    left: 0;
+}

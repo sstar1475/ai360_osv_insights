@@ -18,4 +18,3 @@ def filter(df_report: pd.DataFrame, cwe_id: str)->pd.DataFrame:
 def get_children(cwe_id: str):
     node = CWENode(cwe_id)
     return node.get_descendants("1")
-get_children("1000")
