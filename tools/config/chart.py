@@ -65,3 +65,30 @@ STACKED_BAR_LAYOUT = dict(
     paper_bgcolor="#fdfdfe",
     plot_bgcolor="#fdfdfe"
 )
+
+SANKEY_NODE_PALETTE = [
+    '#00a8e8', '#007ea7', '#003459',
+    '#ff9e00', '#ff8500', '#f77f00',
+    '#023e8a', '#00509d', '#002855'
+]
+
+# Полупрозрачные цвета для связей (линков) на основе Severity
+SANKEY_LINK_COLORS = {
+    'CRITICAL': 'rgba(239, 83, 80, 0.4)',  # Мягкий красный
+    'HIGH': 'rgba(156, 39, 176, 0.4)',     # Фиолетовый
+    'MEDIUM': 'rgba(33, 150, 243, 0.4)',   # Синий
+    'LOW': 'rgba(102, 187, 106, 0.4)',     # Зеленый
+    'NONE': 'rgba(189, 189, 189, 0.3)',    # Серый
+    'UNKNOWN': 'rgba(189, 189, 189, 0.3)'
+}
+
+# Шаблон (Layout) для Sankey Chart
+SANKEY_LAYOUT = dict(
+    template='plotly_white',
+    height=650,
+    font=BASE_FONT,
+    margin=dict(t=40, b=40, l=40, r=40),
+    paper_bgcolor="#fdfdfe",
+    plot_bgcolor="#fdfdfe",
+    hoverlabel=dict(bgcolor='white', font_size=13, font_family="Open Sans")
+)

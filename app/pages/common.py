@@ -1,11 +1,14 @@
 import dash
 from dash import html
 
+from tools.components.sankey import create_sankey_chart
+
 dash.register_page(__name__, path='/common', name='Common Statistics')
 
+# Стили для консистентности с остальным приложением
 placeholder_card_style = {
     'width': '46%',
-    'minHeight': '280px',
+    'minHeight': '150px',
     'backgroundColor': '#ffffff',
     'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
     'borderRadius': '16px',
@@ -14,21 +17,30 @@ placeholder_card_style = {
     'display': 'flex',
     'alignItems': 'center',
     'justifyContent': 'center',
-    'color': '#95a5a6', # Приглушенный серо-голубой для текста плейсхолдера
+    'color': '#95a5a6', 
     'fontFamily': "'Open Sans', sans-serif",
-    'fontSize': '18px',
+    'fontSize': '16px',
     'fontStyle': 'italic',
-    'border': '2px dashed #ecf0f1' # Легкая пунктирная рамка внутри карточки
+    'border': '2px dashed #ecf0f1'
 }
 
-# Общий контейнер для сетки на Flexbox
 grid_container_style = {
     'display': 'flex',
     'flexWrap': 'wrap',
     'justifyContent': 'center',
-    'gap': '30px', # Расстояние между карточками
+    'gap': '30px',
     'width': '100%',
     'padding': '10px'
+}
+
+real_card_style = {
+    'width': '100%',
+    'backgroundColor': '#ffffff',
+    'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
+    'borderRadius': '16px',
+    'padding': '25px',
+    'boxSizing': 'border-box',
+    'marginBottom': '25px'
 }
 
 layout = html.Div([
@@ -40,17 +52,20 @@ layout = html.Div([
             'fontFamily': "'Montserrat', sans-serif",
             'fontSize': '38px',
             'fontWeight': '700',
-            'marginBottom': '50px'
+            'marginBottom': '40px'
         }
     ),
 
-    # Сетка для графиков
     html.Div([
-        html.Div("Здесь будет первый график...", style=placeholder_card_style),
-        html.Div("А здесь второй...", style=placeholder_card_style),
-        html.Div("Место для круговой диаграммы...", style=placeholder_card_style),
-        html.Div("Гистограмма распределения...", style=placeholder_card_style),
-        html.Div("График динамики...", style=placeholder_card_style),
-        html.Div("Дополнительная метрика...", style=placeholder_card_style),
-    ], style=grid_container_style)
+        # Вставляем наш интерактивный и полностью переработанный блок Sankey
+        html.Div(create_sankey_chart(), style=real_card_style),
+
+        # Оставляем сетку плейсхолдеров для будущих графиков
+        html.Div([
+            html.Div("Vulnerability Distribution by Year...", style=placeholder_card_style),
+            html.Div("Top Maintainers Affected...", style=placeholder_card_style),
+            html.Div("Average Fix Time Trends...", style=placeholder_card_style),
+            html.Div("Package Popularity vs Vulnerabilities...", style=placeholder_card_style),
+        ], style=grid_container_style)
+    ])
 ])
