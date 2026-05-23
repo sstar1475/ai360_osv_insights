@@ -1,8 +1,11 @@
 import xml.etree.ElementTree as ET
+import csv
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 XML_path = BASE_DIR / 'cwec_v4.20.xml'
+CSV_Path = BASE_DIR / '1000.csv'
+
 
 def get_highest_parents_for_view(xml_path, target_view="1000"):
     ns = {'cwe': 'http://cwe.mitre.org/cwe-7'}
@@ -33,6 +36,15 @@ def get_highest_parents_for_view(xml_path, target_view="1000"):
 Parents, Kids = get_highest_parents_for_view(XML_path, target_view="1000")
 Kids['1000'] = {"284", "435", "664", "682", "691", "693", "697", "703", "707", "710"}
 
+def get_cwe_info():
+    cwe_dict = {}
+    with open(CSV_Path, 'r', encoding='utf-8') as f:
+        reader = csv.reader(f)
+
+        for row in reader:
+            if len(row) >= 2:
+                cwe_dict[row[0]] = row[1]
+    return cwe_dict
 def get_all_ancestors(cwe_id: str, parents: dict[str, list[str]], height: int = 0) -> list[tuple[str, int]]:
     ans = []
     if cwe_id not in parents:

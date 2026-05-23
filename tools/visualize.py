@@ -7,7 +7,7 @@ from pathlib import Path
 
 parent_path = Path(__file__).resolve().parent
 sys.path.insert(0, str(parent_path.parent))
-
+from cwe_parse.XMLConfigure import get_cwe_info
 from dash import dcc, html, Input, Output
 from metrics import *
 from cwe_parse.PrototypeFilter import filter as cwe_filter, get_children
@@ -63,7 +63,7 @@ def create_radial_chart(metric_columns: list, cwe_id: str = "1000") -> go.Figure
 
     # Словарь с детерминированным текстом для каждой угловой метки (края)
     # Здесь в качестве примера — сам ID CWE, но может быть любая строка.
-    edge_texts = {cwe: f"CWE: {cwe}" for cwe in cwe_list}
+    edge_texts = get_cwe_info()
 
     # Основные линии метрик
     for idx, metric_key in enumerate(metric_columns):
