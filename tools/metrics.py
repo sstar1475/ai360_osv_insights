@@ -1,204 +1,154 @@
 import pandas as pd
 import numpy as np
-from math import log2
+import json
 
-def calc_abandonment_risk_score(df: pd.DataFrame) -> float:
+def _prepare_db_data(df: pd.DataFrame, ref_date: str = '2026-05-23', sev_col: str = 'vulnerability_severity_text') -> pd.DataFrame:
     """
-    Вычисляет интегральный риск заброшенности кодовой базы (Aging Risk Matrix).
+    Скрытая функция предобработки, настроенная СТРОГО под структуру 
+    вывода get_detailed_report() из OSVDataClient.
     """
-    if df.empty: return 0.0
-
-    def get_row_unfixed_weight(row) -> float:
-        col_name = 'affected' if 'affected' in row else 'affected_ranges'
-        affected_list = row.get(col_name)
-        if not isinstance(affected_list, list) or len(affected_list) == 0:
-            return 1.0
-
-        unfixed_weight_sum = 0.0
-        for aff in affected_list:
-            if not isinstance(aff, dict): continue
-
-            all_events = []
-            for r in aff.get('ranges', []):
-                events = r.get('events', [])
-                if isinstance(events, list): all_events.extend(events)
-
-            is_fixed = False
-            for e in all_events:
-                if not isinstance(e, dict): continue
-                if 'introduced' in e: is_fixed = False
-                if 'fixed' in e: is_fixed = True
-
-            if not is_fixed:
-                local_sev = aff.get('database_specific', {}).get('severity')
-                unfixed_weight_sum += 10.0 if local_sev == 'CRITICAL' else 1.0
-
-        return unfixed_weight_sum
+    if df.empty: return pd.DataFrame()
+    if 'is_unfixed_vuln' in df.columns: return df.copy()
 
     working_df = df.copy()
-    working_df['unfixed_weight'] = working_df.apply(get_row_unfixed_weight, axis=1)
-    working_df['age_days'] = working_df['age'] if 'age' in working_df.columns else 0.0
 
-    unfixed_df = working_df[working_df['unfixed_weight'] > 0].copy()
+    def extract_weight(sev_val) -> float:
+        if pd.isna(sev_val): return 1.0
+        sev_str = str(sev_val).strip().upper()
+        try:
+            num = float(sev_str)
+            if num > 0: return num
+        except ValueError: pass
+        weights = {'CRITICAL': 10.0, 'HIGH': 7.0, 'MODERATE': 4.0, 'MEDIUM': 4.0, 'LOW': 1.0}
+        for k, v in weights.items():
+            if k in sev_str: return v
+        return 1.0
+
+    # 1. Глобальный вес (из vulnerabilities)
+    working_df['global_weight'] = working_df.get(sev_col, pd.Series([1.0]*len(working_df))).apply(extract_weight)
+    
+    # 2. Локальный вес (из affections)
+    if 'affected_severity' in working_df.columns:
+        working_df['local_weight'] = working_df['affected_severity'].apply(extract_weight)
+    else:
+        working_df['local_weight'] = 1.0
+
+    def parse_row(row):
+        ranges_data = row.get('affected_ranges')
+        
+        # Выбираем максимальный приоритет (локальный перебивает глобальный)
+        g_w = row.get('global_weight', 1.0)
+        l_w = row.get('local_weight', 1.0)
+        final_w = max(g_w, l_w) if l_w > 1.0 else g_w
+
+        if pd.isna(ranges_data) or not ranges_data:
+            return pd.Series({'total_aff': 1, 'unfixed_aff': 1, 'is_unfixed_vuln': True, 'has_regression': False, 'unfixed_weight_sum': final_w})
+
+        # Безопасный парсинг строки от asyncpg
+        ranges = ranges_data
+        if isinstance(ranges_data, str):
+            try: ranges = json.loads(ranges_data)
+            except: ranges = []
+
+        if not isinstance(ranges, list) or len(ranges) == 0:
+            return pd.Series({'total_aff': 1, 'unfixed_aff': 1, 'is_unfixed_vuln': True, 'has_regression': False, 'unfixed_weight_sum': final_w})
+
+        total_aff = len(ranges)
+        unfixed_aff = 0
+        intro_count = 0
+
+        for r in ranges:
+            is_fixed = False
+            if isinstance(r, dict):
+                events = r.get('events', [])
+                if isinstance(events, list):
+                    for e in events:
+                        if isinstance(e, dict):
+                            if 'introduced' in e:
+                                intro_count += 1
+                                is_fixed = False
+                            if 'fixed' in e:
+                                is_fixed = True
+            if not is_fixed:
+                unfixed_aff += 1
+
+        return pd.Series({
+            'total_aff': total_aff,
+            'unfixed_aff': unfixed_aff,
+            'is_unfixed_vuln': unfixed_aff > 0,
+            'has_regression': intro_count > 1,
+            'unfixed_weight_sum': final_w * unfixed_aff
+        })
+
+    stats = working_df.apply(parse_row, axis=1)
+    working_df = pd.concat([working_df, stats], axis=1)
+
+    # 3. Возраст уязвимостей (привязка к правильному SQL-алиасу)
+    pub_col = 'vulnerability_published'
+    if pub_col in working_df.columns:
+        published = pd.to_datetime(working_df[pub_col], errors='coerce', utc=True)
+        current = pd.to_datetime(ref_date, utc=True)
+        working_df['age'] = (current - published).dt.days.fillna(0).clip(lower=0)
+    else:
+        working_df['age'] = 0.0
+
+    return working_df
+
+
+def calc_staleness_index(df: pd.DataFrame, ref_date: str = '2026-05-23') -> float:
+    """Индекс протухания (>2 лет без патча)."""
+    prepared_df = _prepare_db_data(df, ref_date)
+    if prepared_df.empty: return 0.0
+    unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']]
     if unfixed_df.empty: return 0.0
 
-    conditions = [
-        (unfixed_df['age_days'] < 180),
-        (unfixed_df['age_days'] >= 180) & (unfixed_df['age_days'] < 365),
-        (unfixed_df['age_days'] >= 365) & (unfixed_df['age_days'] < 730),
-        (unfixed_df['age_days'] >= 730)
-    ]
-    choices = [0.0, 1.0, 2.5, 5.0]
-    unfixed_df['aging_coeff'] = np.select(conditions, choices, default=0.0)
-
-    total_penalty = (unfixed_df['aging_coeff'] * unfixed_df['unfixed_weight']).sum()
-    return round(float(total_penalty / len(df)), 2)
+    stale_count = (unfixed_df['age'] > 730).sum()
+    return round(float((stale_count / len(prepared_df)) * 100), 2)
 
 
-def calc_staleness_index(df: pd.DataFrame) -> float:
+def calc_avg_unfixed_life(df: pd.DataFrame, ref_date: str = '2026-05-23') -> float:
+    """Среднее время жизни (MTTR в днях) незакрытых уязвимостей."""
+    prepared_df = _prepare_db_data(df, ref_date)
+    if prepared_df.empty: return 0.0
+    unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']]
+    ages = unfixed_df['age'].dropna()
+    ages = ages[ages >= 0]
+    return round(float(ages.mean()), 1) if not ages.empty else 0.0
+
+
+def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-23', sev_col: str = 'vulnerability_severity_text') -> float:
     """
-    Вычисляет индекс протухания зависимостей экосистемы (>2 лет без фикса).
+    Логарифмическая метрика риска по всем Affections.
+    Формула: Sum(sev(aff) * ln(patch_gap(aff) + 1)) / |A|
     """
-    if df.empty: return 0.0
+    prepared_df = _prepare_db_data(df, ref_date, sev_col)
+    if prepared_df.empty: return 0.0
+    
+    unfixed_df = prepared_df[prepared_df['is_unfixed_vuln']]
+    if unfixed_df.empty: return 0.0
 
-    def is_unfixed(affected_list) -> bool:
-        if not isinstance(affected_list, list): return True
-        for aff in affected_list:
-            if not isinstance(aff, dict): continue
-            all_events = []
-            for r in aff.get('ranges', []):
-                events = r.get('events', [])
-                if isinstance(events, list): all_events.extend(events)
-            is_fixed = False
-            for e in all_events:
-                if not isinstance(e, dict): continue
-                if 'introduced' in e: is_fixed = False
-                if 'fixed' in e: is_fixed = True
-            if not is_fixed: return True
-        return False
+    # Считаем числитель: Вес * ln(age + 1)
+    active_risk = np.log1p(unfixed_df['age']) * unfixed_df['unfixed_weight_sum']
+    numerator_sum = active_risk.sum()
 
-    col = 'affected' if 'affected' in df.columns else 'affected_ranges'
-    age_col = 'age' if 'age' in df.columns else 'age_days'
+    abs_A = prepared_df['total_aff'].sum()
+    if abs_A == 0: return 0.0
 
-    if col in df.columns and age_col in df.columns:
-        stale_mask = (df[age_col] > 730) & (df[col].apply(is_unfixed))
-        return round(float((stale_mask.sum() / len(df)) * 100), 2)
-    return 0.0
+    return round(float(numerator_sum / abs_A), 2)
 
 
-def calc_avg_unfixed_life(df: pd.DataFrame) -> float:
-    """
-    Вычисляет среднее время жизни (MTTR в днях) незакрытых дефектов безопасности.
-    """
-    if df.empty: return 0.0
-
-    def is_unfixed(affected_list) -> bool:
-        if not isinstance(affected_list, list): return True
-        for aff in affected_list:
-            if not isinstance(aff, dict): continue
-            all_events = []
-            for r in aff.get('ranges', []):
-                events = r.get('events', [])
-                if isinstance(events, list): all_events.extend(events)
-            is_fixed = False
-            for e in all_events:
-                if not isinstance(e, dict): continue
-                if 'introduced' in e: is_fixed = False
-                if 'fixed' in e: is_fixed = True
-            if not is_fixed: return True
-        return False
-
-    col = 'affected' if 'affected' in df.columns else 'affected_ranges'
-    age_col = 'age' if 'age' in df.columns else 'age_days'
-
-    if col in df.columns and age_col in df.columns:
-        unfixed_mask = df[col].apply(is_unfixed)
-        ages = df.loc[unfixed_mask, age_col].dropna()
-        ages = ages[ages >= 0]
-        return round(float(ages.mean()), 1) if not ages.empty else 0.0
-    return 0.0
-
-
-def calc_high_severity_ratio(df: pd.DataFrame, sev_col: str = 'severity') -> float:
-    """
-    Вычисляет долю критически опасных уязвимостей (>= HIGH / 7.0) в общей массе.
-    """
-    if df.empty: return 0.0
-
-    def is_dangerous_cve(row) -> bool:
-        global_sev = row.get(sev_col)
-        if global_sev is not None and not (isinstance(global_sev, float) and np.isnan(global_sev)):
-            try:
-                if float(global_sev) >= 7.0: return True
-            except ValueError:
-                pass
-            if any(k in str(global_sev).upper() for k in ['HIGH', 'CRITICAL']): return True
-
-        col_name = 'affected' if 'affected' in row.index else 'affected_ranges'
-        affected_list = row.get(col_name)
-        if isinstance(affected_list, list):
-            for aff in affected_list:
-                if not isinstance(aff, dict): continue
-                local_sev = aff.get('database_specific', {}).get('severity')
-                if local_sev:
-                    try:
-                        if float(local_sev) >= 7.0: return True
-                    except ValueError:
-                        pass
-                    if any(k in str(local_sev).upper() for k in ['HIGH', 'CRITICAL']): return True
-        return False
-
-    dangerous_count = df.apply(is_dangerous_cve, axis=1).sum()
-    return round(float((dangerous_count / len(df)) * 100), 2)
-
-
-def calc_defect_density(df: pd.DataFrame, pkg_col: str = 'package_name') -> float:
-    """
-    Вычисляет плотность дефектов безопасности (Defect Density).
-    """
-    if df.empty: return 0.0
-    if pkg_col in df.columns and df[pkg_col].nunique() > 0:
-        unique_packages = df[pkg_col].nunique()
-    else:
-        all_pkgs = set()
-        col = 'affected' if 'affected' in df.columns else 'affected_ranges'
-        if col in df.columns:
-            for affected_list in df[col].dropna():
-                if isinstance(affected_list, list):
-                    for aff in affected_list:
-                        if not isinstance(aff, dict): continue
-                        pkg_name = aff.get('package', {}).get('name')
-                        if pkg_name: all_pkgs.add(pkg_name)
-        unique_packages = len(all_pkgs)
-    return round(float(len(df) / unique_packages), 2) if unique_packages > 0 else 0.0
+def calc_high_severity_ratio(df: pd.DataFrame, sev_col: str = 'vulnerability_severity_text') -> float:
+    """Доля критически опасных уязвимостей (>= 7.0 или HIGH/CRITICAL)."""
+    prepared_df = _prepare_db_data(df, sev_col=sev_col)
+    if prepared_df.empty: return 0.0
+    
+    # Ищем баги, чей вес (локальный или глобальный) оказался >= 7.0
+    dangerous_count = ((prepared_df['unfixed_weight_sum'] >= 7.0) & prepared_df['is_unfixed_vuln']).sum()
+    return round(float((dangerous_count / len(prepared_df)) * 100), 2)
 
 
 def calc_regression_rate(df: pd.DataFrame) -> float:
-    """
-    Вычисляет индекс повторного появления уязвимостей (Bug Bounce Rate).
-    """
-    if df.empty: return 0.0
-
-    def check_regression(affected_list) -> bool:
-        if not isinstance(affected_list, list): return False
-        for aff in affected_list:
-            if not isinstance(aff, dict): continue
-            intro_count = 0
-            for r in aff.get('ranges', []):
-                for e in r.get('events', []):
-                    if isinstance(e, dict) and 'introduced' in e:
-                        intro_count += 1
-            if intro_count > 1: return True
-        return False
-
-    col = 'affected' if 'affected' in df.columns else 'affected_ranges'
-    if col in df.columns:
-        regression_count = df[col].apply(check_regression).sum()
-        return round(float((regression_count / len(df)) * 100), 2)
-    return 0.0
-
-
-def normalize(values: list[float], total_pr: float = 1) -> list[float]:
-    mx = max(values, default=1)
-    norm = mx * total_pr
-    return [log2(1 + el / mx) if mx != 0 else 0 for el in values]
+    """Индекс регрессии кода (Bug Bounce Rate)."""
+    prepared_df = _prepare_db_data(df)
+    if prepared_df.empty: return 0.0
+    return round(float((prepared_df['has_regression'].sum() / len(prepared_df)) * 100), 2)
