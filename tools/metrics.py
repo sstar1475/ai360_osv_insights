@@ -183,4 +183,5 @@ def calc_defect_density(df: pd.DataFrame, pkg_col: str = 'package_name') -> floa
 
 def normalize(values: list[float]) -> list[float]:
     mx = max(values, default=1)
+    if mx == 0: return []
     return [100 * log2(1 + el / mx) for el in values]

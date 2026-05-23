@@ -5,13 +5,12 @@ from app.app import df_report
 
 
 def create_stacked_bar_chart() -> html.Div:
-    """Возвращает HTML-блок с гистограммой и фильтрами."""
     return html.Div([
         # Интерактивный заголовок
         html.H3(
             "Severity Distribution Analysis",
             id='stacked-collapse-btn',
-            className='collapsible-header active',
+            className='collapsible-header',  # УБРАЛИ 'active' — скрыто на старте
             style={'color': '#e67e22', 'marginTop': '0', 'fontFamily': "'Montserrat', sans-serif"}
         ),
 
@@ -59,7 +58,7 @@ def create_stacked_bar_chart() -> html.Div:
                 figure=build_stacked_bar_figure(df_report, group_by='ecosystem', normalized=False),
                 config={'displayModeBar': False}
             )
-        ], id='stacked-collapse-content', className='collapsible-content collapsed')
+        ], id='stacked-collapse-content', className='collapsible-content collapsed')  # ДОБАВИЛИ 'collapsed'
 
     ], style={'width': '100%', 'display': 'flex', 'flexDirection': 'column'})
 

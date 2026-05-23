@@ -4,11 +4,11 @@ from dash import html
 from tools.components.radar_chart import create_radar_chart
 from tools.components.stacked_bar import create_stacked_bar_chart
 
-dash.register_page(__name__, path='/affections', name='Vulnerability Analysis')
+dash.register_page(__name__, path='/affections', name='Vulnerabilities and Affections Analysis')
 
 placeholder_card_style = {
     'width': '46%',
-    'minHeight': '280px',
+    'minHeight': '150px', # Высота пустых прямоугольников уменьшена с 280px до 150px
     'backgroundColor': '#ffffff',
     'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
     'borderRadius': '16px',
@@ -19,7 +19,7 @@ placeholder_card_style = {
     'justifyContent': 'center',
     'color': '#95a5a6', 
     'fontFamily': "'Open Sans', sans-serif",
-    'fontSize': '18px',
+    'fontSize': '16px',
     'fontStyle': 'italic',
     'border': '2px dashed #ecf0f1'
 }
@@ -38,9 +38,9 @@ real_card_style = {
     'backgroundColor': '#ffffff',
     'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
     'borderRadius': '16px',
-    'padding': '30px',
+    'padding': '25px', # Уменьшен отступ для компактного схлопывания карточки
     'boxSizing': 'border-box',
-    'marginBottom': '30px'
+    'marginBottom': '25px'
 }
 
 layout = html.Div([
@@ -52,13 +52,12 @@ layout = html.Div([
             'fontFamily': "'Montserrat', sans-serif",
             'fontSize': '38px',
             'fontWeight': '700',
-            'marginBottom': '50px'
+            'marginBottom': '40px'
         }
     ),
 
     html.Div([
         html.Div(create_radar_chart(), style=real_card_style),
-
         html.Div(create_stacked_bar_chart(), style=real_card_style),
 
         html.Div([

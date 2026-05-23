@@ -42,4 +42,4 @@ class CWENode:
     def get_descendants(self, level: str = None):
         if level is None:
             return self.descendants_dict["ALL"]
-        return self.descendants_dict[level]
+        return self.descendants_dict[level] if level in self.descendants_dict else []

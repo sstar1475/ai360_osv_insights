@@ -6,12 +6,10 @@ from tools.config.chart import STACKED_BAR_LAYOUT, SEVERITY_COLORS
 
 def build_stacked_bar_figure(df_source: pd.DataFrame, group_by: str = 'ecosystem',
                              normalized: bool = False) -> go.Figure:
-    """Генерирует Plotly Figure для многослойной гистограммы."""
     data = df_source.copy()
     if data.empty:
         return go.Figure().update_layout(title="No data available")
 
-    # Фильтруем: только GHSA и 4 целевые экосистемы
     data = data[
         (data['vulnerability_id'].str.startswith('GHSA', na=False)) &
         (data['package_ecosystem'].isin(['PyPI', 'npm', 'Go', 'Maven']))
@@ -19,12 +17,14 @@ def build_stacked_bar_figure(df_source: pd.DataFrame, group_by: str = 'ecosystem
 
     # ----- 1. Маппинг Severity -----
     data['severity'] = data['vulnerability_severity_text'].replace({'MODERATE': 'MEDIUM'}).fillna('UNKNOWN')
-    severity_mapping = {'LOW': 'LOW', 'MEDIUM': 'MEDIUM', 'HIGH': 'HIGH', 'CRITICAL': 'CRITICAL', 'UNKNOWN': 'UNKNOWN'}
+    severity_mapping = {'LOW': 'LOW', 'MEDIUM': 'MEDIUM', 'HIGH': 'HIGH', 'CRITICAL': 'CRITICAL'}
     data['severity'] = data['severity'].map(lambda x: severity_mapping.get(str(x).upper(), 'UNKNOWN'))
+
+    # СТРОГОЕ ИСКЛЮЧЕНИЕ НЕИЗВЕСТНЫХ СТАТУСОВ
+    data = data[data['severity'] != 'UNKNOWN']
 
     # ----- 2. Группировка -----
     if group_by == 'cwe_class':
-        # Вытаскиваем первую цифру CWE ID и мапим на английские названия (MITRE Pillars)
         data['cwe_first'] = data['vulnerability_cwe_id'].astype(str).str.split('|').str[0].str.strip()
         data['cwe_pillar'] = data['cwe_first'].str.extract(r'(\d)')[0].fillna('?')
 
@@ -46,12 +46,11 @@ def build_stacked_bar_figure(df_source: pd.DataFrame, group_by: str = 'ecosystem
         totals = grouped.groupby(group_col)['count'].transform('sum')
         grouped['count'] = (grouped['count'] / totals) * 100
 
-    # ----- 4. Порядок столбцов (по убыванию суммы) -----
     group_order = grouped.groupby(group_col)['count'].sum().sort_values(ascending=False).index.tolist()
 
-    # ----- 5. Сборка графика -----
+    # ----- 4. Сборка столбцов -----
     fig = go.Figure()
-    severity_order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'UNKNOWN']
+    severity_order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']  # UNKNOWN полностью удален
 
     for sev in severity_order:
         sub = grouped[grouped['severity'] == sev]
@@ -65,7 +64,7 @@ def build_stacked_bar_figure(df_source: pd.DataFrame, group_by: str = 'ecosystem
             x=group_order,
             y=y_values,
             marker_color=SEVERITY_COLORS.get(sev, '#9e9e9e'),
-            marker_line=dict(color='white', width=1),  # Делаем разделители четче
+            marker_line=dict(color='white', width=1),
             text=[f'{v:.1f}%' if normalized and v > 3 else (f'{int(v):,}' if v > 0 else '') for v in y_values],
             textposition='inside',
             textfont=dict(size=12, color='white', weight='bold'),
@@ -73,10 +72,8 @@ def build_stacked_bar_figure(df_source: pd.DataFrame, group_by: str = 'ecosystem
             hovertemplate="<b>%{x}</b><br>Severity: " + sev + "<br>Value: %{y:.1f}<extra></extra>"
         ))
 
-    # Применяем внешние стили из chart_theme.py
     fig.update_layout(**STACKED_BAR_LAYOUT)
 
-    # Динамические настройки осей, зависящие от данных
     fig.update_layout(
         xaxis=dict(
             title=None,
