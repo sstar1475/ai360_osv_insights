@@ -1,12 +1,12 @@
 import os
+import atexit
 import warnings
 from typing import Optional
 
-import asyncpg
-import asyncio
 import pandas as pd
 from dotenv import load_dotenv
 from sshtunnel import SSHTunnelForwarder
+from sqlalchemy import create_engine
 import paramiko
 
 if not hasattr(paramiko, "DSSKey"):
@@ -15,13 +15,6 @@ if not hasattr(paramiko, "DSSKey"):
 warnings.filterwarnings('ignore', category=UserWarning)
 
 class OSVDataClient:
-    ssh_host: str
-    ssh_user: str
-    ssh_password: str
-    db_name: str
-    db_user: str
-    db_pass: str
-
     def __init__(self) -> None:
         load_dotenv()
         self.ssh_host = str(os.getenv("SSH_HOST"))
@@ -31,40 +24,42 @@ class OSVDataClient:
         self.db_user = str(os.getenv("DB_USER"))
         self.db_pass = str(os.getenv("DB_PASS"))
 
+        self.tunnel = SSHTunnelForwarder(
+            (self.ssh_host, 22),
+            ssh_username=self.ssh_user,
+            ssh_password=self.ssh_password,
+            host_pkey_directories=[],
+            allow_agent=False,
+            remote_bind_address=("127.0.0.1", 5432),
+        )
+        self.tunnel.start()
+
+        db_url = f"postgresql+psycopg2://{self.db_user}:{self.db_pass}@127.0.0.1:{self.tunnel.local_bind_port}/{self.db_name}"
+        self.engine = create_engine(
+            db_url,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True
+        )
+
+        atexit.register(self.close)
+
+    def close(self):
+        """Корректное завершение работы"""
+        self.engine.dispose()
+        self.tunnel.stop()
+
     def query(self, sql_query: str) -> pd.DataFrame:
-        """Выполняет любой SQL-запрос и возвращает чистый Pandas DataFrame"""
-        with SSHTunnelForwarder(
-                (self.ssh_host, 22),
-                ssh_username=self.ssh_user,
-                ssh_password=self.ssh_password,
-                host_pkey_directories=[],
-                allow_agent=False,
-                remote_bind_address=("127.0.0.1", 5432),
-        ) as tunnel:
-
-            # Создаем внутреннюю асинхронную функцию для работы с БД
-            async def _execute_db():
-                conn: asyncpg.Connection = await asyncpg.connect(
-                    host="127.0.0.1",
-                    port=tunnel.local_bind_port,
-                    database=self.db_name,
-                    user=self.db_user,
-                    password=self.db_pass,
-                )
-                try:
-                    records: list[asyncpg.Record] = await conn.fetch(sql_query)
-                    return pd.DataFrame([dict(r) for r in records])
-                finally:
-                    await conn.close()
-
-            # Запускаем асинхронную функцию синхронно
-            return asyncio.run(_execute_db())
+        """
+        Выполняет запрос используя нативные и быстрые механизмы Pandas.
+        Не создает новых подключений, берет готовое из пула.
+        """
+        return pd.read_sql(sql_query, con=self.engine)
 
     def get_vulnerabilities(self, limit: Optional[int] = None) -> pd.DataFrame:
-        """Универсальное получение всех полей из таблицы vulnerabilities"""
         sql: str = "SELECT * FROM vulnerabilities"
         if limit is not None:
-            sql += f" LIMIT {limit}"
+            sql += f" LIMIT {int(limit)}"
         return self.query(sql)
 
     def get_packages(self, limit: Optional[int] = None) -> pd.DataFrame:
