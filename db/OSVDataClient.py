@@ -86,10 +86,12 @@ class OSVDataClient:
 
     def get_detailed_report(self, limit: Optional[int] = None) -> pd.DataFrame:
         """
-        Объединяет 3 основные таблицы. По умолчанию выгружает всё.
+        УНИВЕРСАЛЬНЫЙ МЕТОД: Собирает абсолютно все данные из базы в один датафрейм.
+        Включает метаданные багов, пакеты, диапазоны и результаты обсчета таймлайнов.
         """
         sql: str = '''
             SELECT
+                -- Данные из таблицы vulnerabilities
                 v.id AS vulnerability_id,
                 v.summary AS vulnerability_summary,
                 v.published AS vulnerability_published,
@@ -100,40 +102,27 @@ class OSVDataClient:
                 v.severity AS vulnerability_severity_score,
                 v.cwe_id AS vulnerability_cwe_id,
                 v.severity_text AS vulnerability_severity_text,
+                
+                -- Данные из таблицы packages
                 p.ecosystem AS package_ecosystem,
                 p.name AS package_name,
+                
+                -- Данные из таблицы affections
                 a.severity AS affected_severity,
-                a.ranges AS affected_ranges
+                a.ranges AS affected_ranges,
+                
+                -- Данные из таблицы affected_ranges (Обсчитанные таймлайны и коммиты)
+                r.introduced_version,
+                r.fixed_version,
+                r.intro_date,
+                r.commit_date, -- Наш новый филд для лагов
+                r.fixed_date,
+                r.days_vulnerable,
+                r.status AS range_processing_status
             FROM affections a
             JOIN vulnerabilities v ON a.vuln_id = v.pk_id
             JOIN packages p ON a.pack_id = p.pk_id
-        '''
-        params = {}
-        if limit is not None:
-            sql += " LIMIT :limit_val"
-            params["limit_val"] = int(limit)
-        return self.query(sql, params=params)
-
-    def get_vulnerability_timeline_report(self, limit: Optional[int] = None) -> pd.DataFrame:
-        """
-        Выгружает отчет по таймлайну существования уязвимостей,
-        включая версии, intro_date, fixed_date и days_vulnerable.
-        """
-        sql: str = '''
-            SELECT 
-                v.id AS vulnerability_id, 
-                p.ecosystem AS package_ecosystem, 
-                p.name AS package_name,
-                r.introduced_version,
-                r.fixed_version,
-                r.intro_date, 
-                r.fixed_date, 
-                r.days_vulnerable
-            FROM public.affected_ranges r
-            JOIN public.affections a ON r.vuln_id = a.vuln_id AND r.pack_id = a.pack_id
-            JOIN public.vulnerabilities v ON a.vuln_id = v.pk_id
-            JOIN public.packages p ON a.pack_id = p.pk_id
-            WHERE r.days_vulnerable IS NOT NULL
+            LEFT JOIN affected_ranges r ON r.vuln_id = a.vuln_id AND r.pack_id = a.pack_id
         '''
         params = {}
         if limit is not None:
