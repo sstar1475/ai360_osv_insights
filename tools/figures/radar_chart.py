@@ -12,7 +12,7 @@ def build_radar_figure(df_source, metric_columns: list, cwe_id: str = "1000") ->
         fig = go.Figure()
         fig.add_annotation(text="Please select at least one metric", xref="paper", yref="paper", x=0.5, y=0.5,
                            showarrow=False)
-        fig.update_layout(height=400, template="plotly_white")
+        fig.update_layout(height=400, template="plotly_dark", paper_bgcolor="#161b22", plot_bgcolor="#161b22")
         return fig
 
     children = get_children(cwe_id)
@@ -28,7 +28,7 @@ def build_radar_figure(df_source, metric_columns: list, cwe_id: str = "1000") ->
         fig = go.Figure()
         fig.add_annotation(text=f"No subcategories found for CWE-{cwe_id}", xref="paper", yref="paper", x=0.5, y=0.5,
                            showarrow=False, font=dict(size=16))
-        fig.update_layout(height=400, template="plotly_white")
+        fig.update_layout(height=400, template="plotly_dark", paper_bgcolor="#161b22", plot_bgcolor="#161b22")
         return fig
 
     theta_vals = cwe_list + [cwe_list[0]]

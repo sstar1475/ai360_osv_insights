@@ -3,61 +3,47 @@ from dash import html
 
 from tools.components.radar_chart import create_radar_chart
 from tools.components.stacked_bar import create_stacked_bar_chart
+from tools.components.kpi_strip import create_affections_kpis
+from app.app import df_report
 
-dash.register_page(__name__, path='/affections', name='Vulnerabilities and Affections Analysis')
+dash.register_page(__name__, path='/affections', name='Vulnerability Analysis')
 
-placeholder_card_style = {
-    'width': '46%',
-    'minHeight': '150px',
-    'backgroundColor': '#ffffff',
-    'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
+_CARD_STYLE = {
+    'background': '#161b22',
+    'border': '1px solid #30363d',
     'borderRadius': '16px',
-    'padding': '20px',
-    'boxSizing': 'border-box',
-    'display': 'flex',
-    'alignItems': 'center',
-    'justifyContent': 'center',
-    'color': '#95a5a6', 
-    'fontFamily': "'Open Sans', sans-serif",
-    'fontSize': '16px',
-    'fontStyle': 'italic',
-    'border': '2px dashed #ecf0f1'
-}
-
-grid_container_style = {
-    'display': 'flex',
-    'flexWrap': 'wrap',
-    'justifyContent': 'center',
-    'gap': '30px',
-    'width': '100%',
-    'padding': '10px'
-}
-
-real_card_style = {
-    'width': '100%',
-    'backgroundColor': '#ffffff',
-    'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
-    'borderRadius': '16px',
-    'padding': '25px',
-    'boxSizing': 'border-box',
-    'marginBottom': '25px'
+    'padding': '28px',
+    'marginBottom': '24px'
 }
 
 layout = html.Div([
     html.H1(
-        "Vulnerability & Affection Analysis", 
+        "Vulnerability & Affection Analysis",
         style={
-            'textAlign': 'center', 
-            'color': '#2c3e50', 
+            'textAlign': 'center',
             'fontFamily': "'Montserrat', sans-serif",
             'fontSize': '38px',
             'fontWeight': '700',
-            'marginBottom': '40px'
+            'marginBottom': '8px',
+            'color': '#f0f6fc'
+        }
+    ),
+    html.P(
+        "CWE drill-down radar, severity distributions, and ecosystem risk metrics.",
+        style={
+            'textAlign': 'center',
+            'color': '#8b949e',
+            'fontSize': '15px',
+            'marginBottom': '32px'
         }
     ),
 
-    html.Div([
-        html.Div(create_radar_chart(), style=real_card_style),
-        html.Div(create_stacked_bar_chart(), style=real_card_style)
-    ])
+    # KPI strip (computed from real data)
+    create_affections_kpis(df_report),
+
+    # Radar Chart
+    html.Div(create_radar_chart(), style=_CARD_STYLE),
+
+    # Stacked Bar Chart
+    html.Div(create_stacked_bar_chart(), style=_CARD_STYLE),
 ])

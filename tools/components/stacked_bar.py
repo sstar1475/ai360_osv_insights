@@ -21,7 +21,7 @@ def create_stacked_bar_chart() -> html.Div:
             # Панель управления (Фильтры)
             html.Div([
                 html.Div([
-                    html.Label("Group By:", style={'fontWeight': '600', 'color': '#2c3e50', 'display': 'block',
+                    html.Label("Group By:", style={'fontWeight': '600', 'color': '#f0f6fc', 'display': 'block',
                                                    'marginBottom': '8px'}),
                     dcc.Dropdown(
                         id='stacked-group-by-dropdown',
@@ -31,12 +31,17 @@ def create_stacked_bar_chart() -> html.Div:
                         ],
                         value='ecosystem',
                         clearable=False,
-                        style={'width': '100%'}
+                        style={
+                            'width': '100%',
+                            'backgroundColor': '#1c2128',
+                            'color': '#f0f6fc',
+                            'border': '1px solid #30363d'
+                        }
                     )
                 ], style={'width': '45%', 'display': 'inline-block', 'verticalAlign': 'top', 'marginRight': '5%'}),
 
                 html.Div([
-                    html.Label("Calculation Mode:", style={'fontWeight': '600', 'color': '#2c3e50', 'display': 'block',
+                    html.Label("Calculation Mode:", style={'fontWeight': '600', 'color': '#f0f6fc', 'display': 'block',
                                                            'marginBottom': '8px'}),
                     dcc.RadioItems(
                         id='stacked-value-mode-radio',
@@ -45,12 +50,12 @@ def create_stacked_bar_chart() -> html.Div:
                             {'label': ' Normalized (100%)', 'value': 'normalized'}
                         ],
                         value='absolute',
-                        labelStyle={'display': 'block', 'margin': '5px 0', 'color': '#34495e', 'cursor': 'pointer'}
+                        labelStyle={'display': 'block', 'margin': '5px 0', 'color': '#f0f6fc', 'cursor': 'pointer'}
                     )
                 ], style={'width': '45%', 'display': 'inline-block', 'verticalAlign': 'top'})
 
-            ], style={'backgroundColor': '#f8f9fa', 'padding': '25px', 'borderRadius': '12px',
-                      'border': '1px solid #ecf0f1', 'marginBottom': '20px'}),
+            ], style={'backgroundColor': '#21262d', 'padding': '25px', 'borderRadius': '12px',
+                      'border': '1px solid #30363d', 'marginBottom': '20px'}),
 
             # Контейнер для графика
             dcc.Graph(

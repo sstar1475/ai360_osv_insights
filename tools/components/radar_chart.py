@@ -16,71 +16,72 @@ def create_radar_chart() -> html.Div:
         html.H3(
             "Risk Metrics Radar Analysis",
             id='radar-collapse-btn',
-            className='collapsible-header',  # УБРАЛИ 'active' — теперь подчеркивание скрыто при старте
+            className='collapsible-header',
             style={'color': '#e67e22', 'marginTop': '0', 'fontFamily': "'Montserrat', sans-serif"}
         ),
 
         html.Div([
             html.P(
-                "Comparative evaluation of sub-CWE categories across selected statistical parameters. Click on any sub-CWE item in the sidebar to drill down deeper into the inheritance tree.",
-                style={'color': '#7f8c8d', 'fontSize': '16px', 'marginBottom': '25px'}),
+                "Comparative evaluation of sub-CWE categories across selected metrics. Click any CWE in the sidebar to drill down.",
+                style={'color': '#8b949e', 'fontSize': '14px', 'marginBottom': '20px'}),
 
             html.Div([
+                # ── Left: metrics selector + chart + formula ──────────────────
                 html.Div([
+                    # Metrics checklist
                     html.Div([
                         html.Label("Select Metrics to Plot:",
-                                   style={'fontWeight': '600', 'color': '#2c3e50', 'display': 'block',
-                                          'marginBottom': '12px', 'fontSize': '16px'}),
+                                   style={'fontWeight': '600', 'color': '#f0f6fc', 'display': 'block',
+                                          'marginBottom': '10px', 'fontSize': '14px'}),
                         dcc.Checklist(
                             id='radar-metric-checklist',
                             options=[{'label': info['label'], 'value': key} for key, info in ALL_METRICS.items()],
                             value=['metric_1', 'metric_3', 'metric_4'],
                             inline=False,
-                            labelStyle={'display': 'block', 'margin': '8px 0', 'color': '#34495e', 'fontSize': '15px',
-                                        'cursor': 'pointer'}
+                            labelStyle={'display': 'block', 'margin': '6px 0', 'color': '#c9d1d9',
+                                        'fontSize': '13px', 'cursor': 'pointer'}
                         )
-                    ], style={'backgroundColor': '#f8f9fa', 'padding': '25px', 'borderRadius': '12px',
-                              'border': '1px solid #ecf0f1', 'marginBottom': '20px'}),
+                    ], style={
+                        'backgroundColor': '#21262d',
+                        'padding': '16px 20px',
+                        'borderRadius': '10px',
+                        'border': '1px solid #30363d',
+                        'marginBottom': '16px'
+                    }),
 
-                    dcc.Graph(
-                        id='radar-chart-graph',
-                        config={'displayModeBar': False}
-                    ),
+                    dcc.Graph(id='radar-chart-graph', config={'displayModeBar': False}),
 
-                    html.Div(
-                        [
-                            html.Span("ℹ️ Normalization Note: ", style={'fontWeight': 'bold', 'color': '#34495e'}),
-                            "Metric values are logarithmically scaled using the formula ",
-                            html.Code("100 × log₂(1 + value / max_value)",
-                                      style={
-                                          'backgroundColor': '#ffffff',
-                                          'padding': '2px 6px',
-                                          'borderRadius': '4px',
-                                          'color': '#e67e22',
-                                          'fontSize': '12.5px',
-                                          'border': '1px solid #e0e6ed'
-                                      }),
-                            ". This ensures that metrics with vastly different absolute scales remain visually comparable without extreme outliers flattening the graph."
-                        ],
-                        style={
-                            'textAlign': 'center',
-                            'color': '#7f8c8d',
-                            'fontSize': '13px',
-                            'marginTop': '10px',
-                            'marginBottom': '20px',
-                            'padding': '12px 20px',
-                            'backgroundColor': '#f8f9fa',
-                            'borderRadius': '8px',
-                            'lineHeight': '1.6',
-                            'fontFamily': "'Open Sans', sans-serif",
-                            'width': '90%',
-                            'marginLeft': 'auto',
-                            'marginRight': 'auto',
-                            'border': '1px solid #ecf0f1'
-                        }
-                    )
+                    # Normalization note — полностью тёмный
+                    html.Div([
+                        html.Span("Normalization: ", style={
+                            'fontWeight': '700', 'color': '#e67e22', 'fontSize': '12px'
+                        }),
+                        html.Code("100 × log₂(1 + value / max_value)", style={
+                            'backgroundColor': '#0d1117',
+                            'padding': '2px 8px',
+                            'borderRadius': '4px',
+                            'color': '#58a6ff',
+                            'fontSize': '12px',
+                            'border': '1px solid #30363d',
+                            'fontFamily': "'JetBrains Mono', monospace"
+                        }),
+                        html.Span(
+                            " — log-scale keeps all metrics comparable without outlier flattening.",
+                            style={'color': '#6e7681', 'fontSize': '12px'}
+                        )
+                    ], style={
+                        'marginTop': '8px',
+                        'padding': '10px 16px',
+                        'backgroundColor': '#161b22',
+                        'borderRadius': '8px',
+                        'border': '1px solid #21262d',
+                        'lineHeight': '1.6'
+                    })
                 ], style={'width': '62%', 'display': 'inline-block', 'verticalAlign': 'top'}),
+
+                # ── Right: CWE sidebar ────────────────────────────────────────
                 html.Div([
+                    # Back button
                     html.Button(
                         "← Back",
                         id='radar-back-btn',
@@ -89,21 +90,53 @@ def create_radar_chart() -> html.Div:
                         style={'display': 'none'}
                     ),
 
-                    html.Div(id='radar-sidebar-context', className='cwe-sidebar-card',
-                             style={'borderLeft': '4px solid #e67e22', 'backgroundColor': '#fff'}),
+                    # Current CWE context — полностью тёмный
+                    html.Div(id='radar-sidebar-context', style={
+                        'backgroundColor': '#21262d',
+                        'border': '1px solid #30363d',
+                        'borderLeft': '4px solid #e67e22',
+                        'borderRadius': '8px',
+                        'padding': '14px 16px',
+                        'marginBottom': '12px'
+                    }),
 
-                    # Интерактивный список прототипов в сайдбаре
+                    # CWE Prototypes — компактный аккордеон
                     html.Div([
-                        html.Div("CWE Prototypes (Click to toggle view):",
-                                 id='prototypes-collapse-btn',
-                                 className='collapsible-header',  # УБРАЛИ 'active'
-                                 style={'fontSize': '16px', 'fontWeight': 'bold', 'color': '#e67e22',
-                                        'marginBottom': '15px', 'fontFamily': "'Montserrat', sans-serif",
-                                        'cursor': 'pointer'}),
-
-                        # ДОБАВИЛИ 'collapsed' — список подкатегорий изначально свернут
-                        html.Div(id='radar-sidebar-prototypes', className='collapsible-content collapsed')
-                    ], className='cwe-sidebar-card')
+                        html.Div(
+                            id='prototypes-collapse-btn',
+                            className='collapsible-header',
+                            style={'cursor': 'pointer', 'padding': '8px 0', 'marginBottom': '0'},
+                            children=[
+                                html.Span("CWE Prototypes", style={
+                                    'fontWeight': '700',
+                                    'fontSize': '13px',
+                                    'color': '#e67e22',
+                                    'fontFamily': "'Montserrat', sans-serif"
+                                }),
+                                html.Span(" (click to expand)", style={
+                                    'fontSize': '11px',
+                                    'color': '#6e7681'
+                                }),
+                            ]
+                        ),
+                        # Список — изначально скрыт через display:none
+                        html.Div(
+                            id='radar-sidebar-prototypes',
+                            style={
+                                'display': 'none',
+                                'maxHeight': '340px',
+                                'overflowY': 'auto',
+                                'overflowX': 'hidden',
+                                'paddingRight': '4px',
+                                'marginTop': '8px'
+                            }
+                        )
+                    ], style={
+                        'backgroundColor': '#21262d',
+                        'border': '1px solid #30363d',
+                        'borderRadius': '8px',
+                        'padding': '10px 14px'
+                    })
                 ], style={'width': '34%', 'display': 'inline-block', 'verticalAlign': 'top', 'marginLeft': '4%'})
 
             ], style={'width': '100%', 'display': 'block'})
@@ -132,7 +165,6 @@ def handle_radar_navigation(links_clicked, back_clicked, current_history):
     if isinstance(trig_id, dict) and trig_id.get('type') == 'cwe-link':
         if not any(links_clicked):
             return dash.no_update
-
         next_cwe = str(trig_id.get('index'))
         if next_cwe != history[-1]:
             history.append(next_cwe)
@@ -161,30 +193,80 @@ def render_dynamic_radar_views(history, selected_metrics):
     prototype_elements = []
     for child in children_ids:
         child_desc = edge_texts.get(child, "Description unavailable.")
+        # Compact single-line item
         prototype_elements.append(
             html.Div([
-                html.Span(f"{child} ", style={'fontWeight': 'bold', 'color': '#2980b9', 'fontSize': '15px'}),
-                html.Span(f"— {child_desc}")
-            ], id={'type': 'cwe-link', 'index': child}, className='cwe-drilldown-item', n_clicks=0)
+                html.Span(f"CWE-{child}", style={
+                    'fontWeight': '700',
+                    'color': '#58a6ff',
+                    'fontSize': '12px',
+                    'fontFamily': "'JetBrains Mono', monospace",
+                    'marginRight': '6px',
+                    'whiteSpace': 'nowrap'
+                }),
+                html.Span(child_desc, style={
+                    'color': '#8b949e',
+                    'fontSize': '12px',
+                    'overflow': 'hidden',
+                    'textOverflow': 'ellipsis',
+                    'whiteSpace': 'nowrap',
+                    'flex': '1'
+                })
+            ],
+                id={'type': 'cwe-link', 'index': child},
+                className='cwe-drilldown-item',
+                n_clicks=0,
+                style={
+                    'display': 'flex',
+                    'alignItems': 'center',
+                    'gap': '4px',
+                    'padding': '5px 8px',
+                    'borderRadius': '6px',
+                    'cursor': 'pointer',
+                    'marginBottom': '2px'
+                }
+            )
         )
-    if not prototype_elements:
-        prototype_elements = html.P("Leaf Node. No further subcategories found.",
-                                    style={'fontStyle': 'italic', 'color': '#95a5a6', 'padding': '10px'})
 
+    if not prototype_elements:
+        prototype_elements = html.P(
+            "Leaf Node — no further subcategories.",
+            style={'fontStyle': 'italic', 'color': '#6e7681', 'fontSize': '12px', 'padding': '6px 0'}
+        )
+
+    # Current CWE context element — тёмный
     current_title = f"CWE-{current_cwe}"
     current_desc = edge_texts.get(current_cwe, "Research Concepts Hierarchy Base Node.")
     context_element = [
-        html.Div(f"Current Level: {current_title}",
-                 style={'fontSize': '18px', 'fontWeight': 'bold', 'color': '#2c3e50', 'marginBottom': '8px',
-                        'fontFamily': "'Montserrat', sans-serif"}),
-        html.P(current_desc, style={'fontSize': '14px', 'color': '#7f8c8d', 'fontStyle': 'italic', 'margin': '0',
-                                    'lineHeight': '1.5'})
+        html.Div([
+            html.Span("Current Level: ", style={
+                'fontSize': '11px',
+                'color': '#6e7681',
+                'fontFamily': "'JetBrains Mono', monospace",
+                'textTransform': 'uppercase',
+                'letterSpacing': '0.5px'
+            }),
+            html.Span(current_title, style={
+                'fontSize': '15px',
+                'fontWeight': '700',
+                'color': '#e67e22',
+                'fontFamily': "'Montserrat', sans-serif",
+                'marginLeft': '4px'
+            })
+        ], style={'marginBottom': '6px'}),
+        html.P(current_desc, style={
+            'fontSize': '13px',
+            'color': '#8b949e',
+            'fontStyle': 'italic',
+            'margin': '0',
+            'lineHeight': '1.5'
+        })
     ]
 
     if len(history) > 1:
         parent_cwe = history[-2]
         back_style = {'display': 'inline-flex'}
-        back_text = f"← Back to CWE-{parent_cwe}"
+        back_text = f"← CWE-{parent_cwe}"
     else:
         back_style = {'display': 'none'}
         back_text = ""
@@ -206,13 +288,16 @@ def toggle_radar_collapse(n_clicks, current_class):
 
 
 @callback(
-    Output('radar-sidebar-prototypes', 'className'),
+    Output('radar-sidebar-prototypes', 'style'),
     Output('prototypes-collapse-btn', 'className'),
     Input('prototypes-collapse-btn', 'n_clicks'),
-    State('radar-sidebar-prototypes', 'className'),
+    State('radar-sidebar-prototypes', 'style'),
     prevent_initial_call=True
 )
-def toggle_prototypes_collapse(n_clicks, current_class):
-    if "collapsed" in current_class:
-        return "collapsible-content", "collapsible-header active"
-    return "collapsible-content collapsed", "collapsible-header"
+def toggle_prototypes_collapse(n_clicks, current_style):
+    # Определяем текущее состояние по display
+    is_hidden = (current_style or {}).get('display', 'none') == 'none'
+    _base = {'maxHeight': '340px', 'overflowY': 'auto', 'overflowX': 'hidden', 'paddingRight': '4px', 'marginTop': '8px'}
+    if is_hidden:
+        return {**_base, 'display': 'block'}, 'collapsible-header active'
+    return {**_base, 'display': 'none'}, 'collapsible-header'

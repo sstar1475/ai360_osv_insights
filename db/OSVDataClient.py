@@ -78,9 +78,10 @@ class OSVDataClient:
 
     def get_detailed_report(self, limit: Optional[int] = None) -> pd.DataFrame:
         """
-        Объединяет все 3 таблицы, вытаскивая абсолютно все полезные данные без конфликтов имен
+        Объединяет все 3 таблицы, вытаскивая абсолютно все полезные данные без конфликтов имен.
+        intro_date — минимальная дата 'introduced' из JSONB ranges (для метрик staleness/severity).
         """
-        sql: str = '''
+        sql: str = r'''
             SELECT
                 v.id AS vulnerability_id,
                 v.summary AS vulnerability_summary,
@@ -95,11 +96,61 @@ class OSVDataClient:
                 p.ecosystem AS package_ecosystem,
                 p.name AS package_name,
                 a.severity AS affected_severity,
-                a.ranges AS affected_ranges
+                a.ranges AS affected_ranges,
+                (
+                    SELECT MIN(
+                        CASE
+                            WHEN (event->>'introduced') ~ '^\d{4}-\d{2}-\d{2}'
+                            THEN (event->>'introduced')::timestamptz
+                            ELSE NULL
+                        END
+                    )
+                    FROM jsonb_array_elements(a.ranges) AS range_elem,
+                         jsonb_array_elements(range_elem->'events') AS event
+                    WHERE event ? 'introduced'
+                      AND (event->>'introduced') IS NOT NULL
+                      AND (event->>'introduced') != '0'
+                ) AS intro_date,
+                (
+                    SELECT MAX((event->>'fixed')::text)
+                    FROM jsonb_array_elements(a.ranges) AS range_elem,
+                         jsonb_array_elements(range_elem->'events') AS event
+                    WHERE event ? 'fixed'
+                      AND (event->>'fixed') IS NOT NULL
+                      AND (event->>'fixed') != '0'
+                ) AS fixed_version
             FROM affections a
             JOIN vulnerabilities v ON a.vuln_id = v.pk_id
             JOIN packages p ON a.pack_id = p.pk_id
         '''
         if limit is not None:
             sql += f" LIMIT {limit}"
+        return self.query(sql)
+
+    def get_timeline_data(self) -> pd.DataFrame:
+        """
+        Агрегированные данные по кварталам для Timeline страницы.
+        Возвращает количество новых уязвимостей по кварталам и экосистемам.
+        """
+        sql: str = '''
+            SELECT
+                DATE_TRUNC('quarter', v.published) AS quarter,
+                p.ecosystem AS package_ecosystem,
+                COUNT(DISTINCT v.id) AS vuln_count,
+                COUNT(DISTINCT CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM jsonb_array_elements(a.ranges) AS r,
+                             jsonb_array_elements(r->'events') AS e
+                        WHERE e ? 'fixed'
+                    ) THEN v.id
+                END) AS fixed_count
+            FROM affections a
+            JOIN vulnerabilities v ON a.vuln_id = v.pk_id
+            JOIN packages p ON a.pack_id = p.pk_id
+            WHERE v.published IS NOT NULL
+              AND v.published >= '2015-01-01'
+            GROUP BY DATE_TRUNC('quarter', v.published), p.ecosystem
+            ORDER BY quarter, package_ecosystem
+        '''
         return self.query(sql)

@@ -1,8 +1,16 @@
-#env
+# Environment & Credentials
 .env
-*.log
+env/
+env_wsl/
 venv/
-<<<<<<< Updated upstream
-=======
+
+# IDE
 .idea/
->>>>>>> Stashed changes
+.DS_Store
+
+# Logs & Cache
+*.log
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/

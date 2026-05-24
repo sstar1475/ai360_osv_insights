@@ -1,36 +1,46 @@
-METRIC_COLORS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+# tools/config/chart.py
+# Dark Cybersecurity Theme — все цвета Plotly layout
+
+METRIC_COLORS = ['#58a6ff', '#e67e22', '#3fb950', '#f85149', '#d2a8ff', '#ffa657']
 
 SEVERITY_COLORS = {
-    'LOW': '#66bb6a',       # Зеленый
-    'MEDIUM': '#2196F3',    # Синий
-    'HIGH': '#9C27B0',      # Фиолетовый
-    'CRITICAL': '#ef5350',  # Красный
-    'UNKNOWN': '#bdbdbd'    # Серый
+    'LOW':      '#3fb950',
+    'MEDIUM':   '#eab308',
+    'HIGH':     '#d97706',
+    'CRITICAL': '#f85149',
+    'UNKNOWN':  '#6e7681'
 }
 
-BASE_FONT = dict(family="Open Sans, sans-serif", size=14, color="#34495e")
+_DARK_BG   = '#161b22'
+_DARK_SURF = '#21262d'
+_DARK_GRID = '#30363d'
+_TEXT_PRIM = '#f0f6fc'
+_TEXT_MUTE = '#8b949e'
+_ACCENT    = '#e67e22'
 
-# Общий шаблон (Layout) для радарной диаграммы
+BASE_FONT = dict(family="Open Sans, sans-serif", size=14, color=_TEXT_PRIM)
+
+# ---- Radar Chart ----
 RADAR_LAYOUT = dict(
     polar=dict(
         domain=dict(x=[0, 1], y=[0, 1]),
         radialaxis=dict(
             visible=True,
-            gridcolor="#e0e6ed",
+            gridcolor=_DARK_GRID,
             gridwidth=1.5,
-            linecolor="#bdc3c7",
-            tickfont=dict(size=14, color="#7f8c8d")
+            linecolor=_DARK_GRID,
+            tickfont=dict(size=13, color=_TEXT_MUTE),
         ),
         angularaxis=dict(
             direction="clockwise",
-            gridcolor="#e0e6ed",
-            linecolor="#bdc3c7",
-            tickfont=dict(size=16, color="#2c3e50", weight="bold")
+            gridcolor=_DARK_GRID,
+            linecolor=_DARK_GRID,
+            tickfont=dict(size=15, color=_TEXT_PRIM, weight="bold")
         ),
-        bgcolor="#fdfdfe"
+        bgcolor=_DARK_SURF
     ),
     font=BASE_FONT,
-    template="plotly_white",
+    template="plotly_dark",
     height=650,
     showlegend=True,
     legend=dict(
@@ -39,16 +49,21 @@ RADAR_LAYOUT = dict(
         y=-0.15,
         xanchor="center",
         x=0.5,
-        font=dict(size=16),    # Увеличен шрифт легенды радара (было 14)
-        traceorder="normal"
+        font=dict(size=15, color=_TEXT_PRIM),
+        traceorder="normal",
+        bgcolor="rgba(22,27,34,0.8)",
+        bordercolor=_DARK_GRID,
+        borderwidth=1
     ),
+    paper_bgcolor=_DARK_BG,
+    plot_bgcolor=_DARK_SURF,
     margin=dict(t=50, b=130, l=10, r=10)
 )
 
-# Шаблон (Layout) для Stacked Bar Chart
+# ---- Stacked Bar Chart ----
 STACKED_BAR_LAYOUT = dict(
     barmode='stack',
-    template='plotly_white',
+    template='plotly_dark',
     height=550,
     font=BASE_FONT,
     legend=dict(
@@ -58,81 +73,128 @@ STACKED_BAR_LAYOUT = dict(
         y=1.02,
         xanchor='center',
         x=0.5,
-        font=dict(size=16)    # Увеличен шрифт легенды гистограммы для консистентности
+        font=dict(size=15, color=_TEXT_PRIM),
+        bgcolor="rgba(22,27,34,0.0)",
+        bordercolor=_DARK_GRID
     ),
-    hoverlabel=dict(bgcolor='white', font_size=13),
+    hoverlabel=dict(bgcolor=_DARK_SURF, font_size=13, font_color=_TEXT_PRIM),
     margin=dict(t=60, b=60, l=60, r=40),
-    paper_bgcolor="#fdfdfe",
-    plot_bgcolor="#fdfdfe"
+    paper_bgcolor=_DARK_BG,
+    plot_bgcolor=_DARK_SURF,
+    xaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
+    yaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE))
 )
 
+# ---- Sankey ----
 SANKEY_NODE_PALETTE = [
-    '#00a8e8', '#007ea7', '#003459',
-    '#ff9e00', '#ff8500', '#f77f00',
-    '#023e8a', '#00509d', '#002855'
+    '#58a6ff', '#3fb950', '#e67e22', '#d2a8ff', '#ffa657',
+    '#79c0ff', '#56d364', '#f0883e', '#bc8cff', '#ffb86c'
 ]
 
-# Полупрозрачные цвета для связей (линков) на основе Severity
 SANKEY_LINK_COLORS = {
-    'CRITICAL': 'rgba(239, 83, 80, 0.4)',  # Мягкий красный
-    'HIGH': 'rgba(156, 39, 176, 0.4)',     # Фиолетовый
-    'MEDIUM': 'rgba(33, 150, 243, 0.4)',   # Синий
-    'LOW': 'rgba(102, 187, 106, 0.4)',     # Зеленый
-    'NONE': 'rgba(189, 189, 189, 0.3)',    # Серый
-    'UNKNOWN': 'rgba(189, 189, 189, 0.3)'
+    'CRITICAL': 'rgba(248, 81, 73, 0.45)',
+    'HIGH':     'rgba(217, 119, 6, 0.45)',
+    'MEDIUM':   'rgba(234, 179, 8, 0.35)',
+    'LOW':      'rgba(63, 185, 80, 0.35)',
+    'NONE':     'rgba(110, 118, 129, 0.25)',
+    'UNKNOWN':  'rgba(110, 118, 129, 0.25)'
 }
 
-# Шаблон (Layout) для Sankey Chart
 SANKEY_LAYOUT = dict(
-    template='plotly_white',
+    template='plotly_dark',
     height=650,
     font=BASE_FONT,
     margin=dict(t=40, b=40, l=40, r=40),
-    paper_bgcolor="#fdfdfe",
-    plot_bgcolor="#fdfdfe",
-    hoverlabel=dict(bgcolor='white', font_size=13, font_family="Open Sans")
+    paper_bgcolor=_DARK_BG,
+    plot_bgcolor=_DARK_BG,
+    hoverlabel=dict(bgcolor=_DARK_SURF, font_size=13, font_family="Open Sans", font_color=_TEXT_PRIM)
 )
-# Палитра для экосистем
+
+# ---- Ecosystem Colors ----
 ECOSYSTEM_COLORS = {
-    'PyPI': '#377eb8',
-    'npm': '#e41a1c',
-    'Go': '#4daf4a',
-    'Maven': '#984ea3',
-    'All': '#7f8c8d'
+    'PyPI':   '#58a6ff',
+    'npm':    '#f85149',
+    'Go':     '#3fb950',
+    'Maven':  '#d2a8ff',
+    'All':    '#8b949e'
 }
 
-# Шаблон для матрицы рисков
+# ---- Risk Matrix ----
 RISK_MATRIX_LAYOUT = dict(
-    template="plotly_white",
+    template="plotly_dark",
     font=BASE_FONT,
-    margin=dict(l=60, r=40, t=60, b=100), # Большой отступ снизу для легенды
-    plot_bgcolor='#fdfdfe',
-    paper_bgcolor='#fdfdfe',
+    margin=dict(l=60, r=40, t=60, b=100),
+    plot_bgcolor=_DARK_SURF,
+    paper_bgcolor=_DARK_BG,
     hovermode='closest',
+    xaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
+    yaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
     legend=dict(
         orientation="h",
         yanchor="top",
         y=-0.15,
         xanchor="center",
         x=0.5,
-        font=dict(size=15)
+        font=dict(size=14, color=_TEXT_PRIM),
+        bgcolor="rgba(22,27,34,0.8)",
+        bordercolor=_DARK_GRID,
+        borderwidth=1
     )
 )
 
-# Шаблон для Top Packages
+# ---- Top Packages ----
 TOP_PACKAGES_LAYOUT = dict(
     barmode='stack',
-    template="plotly_white",
+    template="plotly_dark",
     font=BASE_FONT,
-    margin=dict(l=150, r=50, t=50, b=80),
-    plot_bgcolor='#fdfdfe',
-    paper_bgcolor='#fdfdfe',
+    margin=dict(l=180, r=50, t=50, b=80),
+    plot_bgcolor=_DARK_SURF,
+    paper_bgcolor=_DARK_BG,
+    xaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
+    yaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
     legend=dict(
         orientation="h",
         yanchor="top",
         y=-0.12,
         xanchor="center",
         x=0.5,
-        font=dict(size=15)
+        font=dict(size=14, color=_TEXT_PRIM),
+        bgcolor="rgba(22,27,34,0.8)",
+        bordercolor=_DARK_GRID,
+        borderwidth=1
     )
+)
+
+# ---- Timeline ----
+TIMELINE_LAYOUT = dict(
+    template="plotly_dark",
+    font=BASE_FONT,
+    height=420,
+    margin=dict(l=60, r=30, t=50, b=60),
+    plot_bgcolor=_DARK_SURF,
+    paper_bgcolor=_DARK_BG,
+    hovermode='x unified',
+    xaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
+    yaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=1.12,
+        xanchor="center",
+        x=0.5,
+        font=dict(size=13, color=_TEXT_PRIM),
+        bgcolor="rgba(22,27,34,0.0)"
+    )
+)
+
+# ---- Heatmap ----
+HEATMAP_LAYOUT = dict(
+    template="plotly_dark",
+    font=BASE_FONT,
+    height=420,
+    margin=dict(l=160, r=60, t=50, b=80),
+    paper_bgcolor=_DARK_BG,
+    plot_bgcolor=_DARK_SURF,
+    xaxis=dict(tickfont=dict(color=_TEXT_PRIM, size=13), linecolor=_DARK_GRID),
+    yaxis=dict(tickfont=dict(color=_TEXT_PRIM, size=12), linecolor=_DARK_GRID)
 )

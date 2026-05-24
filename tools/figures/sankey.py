@@ -10,7 +10,7 @@ def _empty_figure(text: str) -> tuple[go.Figure, list]:
     fig = go.Figure()
     fig.add_annotation(text=text, xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
                        font=dict(size=16, color="#7f8c8d"))
-    fig.update_layout(height=400, template="plotly_white", paper_bgcolor="#fdfdfe")
+    fig.update_layout(height=400, template="plotly_dark", paper_bgcolor="#161b22", plot_bgcolor="#161b22")
     return fig, []
 
 

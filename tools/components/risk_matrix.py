@@ -16,7 +16,7 @@ def create_risk_matrix_chart() -> html.Div:
             html.Div([
                 html.Div([
                     html.Label("Ecosystem:", style={'fontWeight': '600', 'marginRight': '10px', 'display': 'block',
-                                                    'marginBottom': '5px'}),
+                                                    'marginBottom': '5px', 'color': '#f0f6fc'}),
                     dcc.Dropdown(
                         id='risk-matrix-ecosystem-dropdown',
                         options=[
@@ -26,14 +26,20 @@ def create_risk_matrix_chart() -> html.Div:
                             {'label': 'Go', 'value': 'Go'},
                             {'label': 'Maven', 'value': 'Maven'}
                         ],
-                        value='All', clearable=False, style={'width': '220px'}
+                        value='All', clearable=False,
+                        style={
+                            'width': '220px',
+                            'backgroundColor': '#1c2128',
+                            'color': '#f0f6fc',
+                            'border': '1px solid #30363d'
+                        }
                     )
                 ], style={'display': 'inline-block', 'marginRight': '40px', 'verticalAlign': 'top'}),
 
                 html.Div([
                     html.Label("Minimum Vulnerabilities per Package:",
-                               style={'fontWeight': '600', 'marginRight': '15px', 'display': 'block',
-                                      'marginBottom': '5px'}),
+                           style={'fontWeight': '600', 'marginRight': '15px', 'display': 'block',
+                                  'marginBottom': '5px', 'color': '#f0f6fc'}),
                     html.Div(
                         dcc.Slider(
                             id='risk-matrix-min-vulns-slider', min=1, max=50, step=1, value=10,
@@ -42,8 +48,8 @@ def create_risk_matrix_chart() -> html.Div:
                         ), style={'width': '350px'}
                     )
                 ], style={'display': 'inline-block', 'verticalAlign': 'top'})
-            ], style={'backgroundColor': '#f8f9fa', 'padding': '20px', 'borderRadius': '12px', 'marginBottom': '20px',
-                      'border': '1px solid #ecf0f1'}),
+            ], style={'backgroundColor': '#21262d', 'padding': '20px', 'borderRadius': '12px', 'marginBottom': '20px',
+                      'border': '1px solid #30363d'}),
 
             dcc.Graph(id='graph-risk-matrix', config={'displayModeBar': False}, style={'height': '650px'})
         ], id='risk-matrix-content', className='collapsible-content collapsed')

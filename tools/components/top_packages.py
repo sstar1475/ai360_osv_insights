@@ -9,16 +9,27 @@ def create_top_packages_chart() -> html.Div:
         html.Div([
             html.Div([
                 html.Div([
-                    html.Label("Select Ecosystem:", style={'fontWeight': '600', 'marginRight': '10px', 'display': 'block', 'marginBottom': '5px'}),
+                    html.Label("Select Ecosystem:", style={'fontWeight': '600', 'marginRight': '10px', 'display': 'block', 'marginBottom': '5px', 'color': '#f0f6fc'}),
                     dcc.Dropdown(
                         id='ecosystem-dropdown',
-                        options=[{'label': 'PyPI', 'value': 'PyPI'}, {'label': 'npm', 'value': 'npm'}, {'label': 'Go', 'value': 'Go'}, {'label': 'Maven', 'value': 'Maven'}],
-                        value='PyPI', clearable=False, style={'width': '200px'}
+                        options=[
+                            {'label': 'PyPI', 'value': 'PyPI'},
+                            {'label': 'npm', 'value': 'npm'},
+                            {'label': 'Go', 'value': 'Go'},
+                            {'label': 'Maven', 'value': 'Maven'}
+                        ],
+                        value='PyPI', clearable=False,
+                        style={
+                            'width': '200px',
+                            'backgroundColor': '#1c2128',
+                            'color': '#f0f6fc',
+                            'border': '1px solid #30363d'
+                        }
                     )
                 ], style={'display': 'inline-block', 'verticalAlign': 'top', 'marginRight': '40px'}),
 
                 html.Div([
-                    html.Label("Show Top N Packages:", style={'fontWeight': '600', 'display': 'block', 'marginBottom': '5px'}),
+                    html.Label("Show Top N Packages:", style={'fontWeight': '600', 'display': 'block', 'marginBottom': '5px', 'color': '#f0f6fc'}),
                     html.Div(
                         dcc.Slider(
                             id='top-packages-n-slider', min=5, max=30, step=5, value=15,
@@ -26,7 +37,7 @@ def create_top_packages_chart() -> html.Div:
                         ), style={'width': '300px'}
                     )
                 ], style={'display': 'inline-block', 'verticalAlign': 'top'})
-            ], style={'backgroundColor': '#f8f9fa', 'padding': '20px', 'borderRadius': '12px', 'marginBottom': '20px', 'border': '1px solid #ecf0f1'}),
+            ], style={'backgroundColor': '#21262d', 'padding': '20px', 'borderRadius': '12px', 'marginBottom': '20px', 'border': '1px solid #30363d'}),
 
             dcc.Graph(id='graph-top-packages', config={'displayModeBar': False})
         ], id='top-pkg-content', className='collapsible-content collapsed')
