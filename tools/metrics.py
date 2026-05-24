@@ -28,7 +28,8 @@ def calc_staleness_index(df: pd.DataFrame, ref_date: str = '2026-05-22') -> floa
     Находит процент незакрытых уязвимостей, чей возраст с момента публикации
               превышает 2 года
     """
-    if df.empty or 'vulnerability_published' not in df.columns or 'affected_ranges' not in df.columns:
+    # ИЗМЕНЕНО: 'vulnerability_published' заменено на 'intro_date'
+    if df.empty or 'intro_date' not in df.columns or 'affected_ranges' not in df.columns:
         return 0.0
 
     def is_unfixed(ranges_data) -> bool:
@@ -46,9 +47,10 @@ def calc_staleness_index(df: pd.DataFrame, ref_date: str = '2026-05-22') -> floa
     unfixed_df = df[unfixed_mask].copy()
     if unfixed_df.empty: return 0.0
 
-    published = pd.to_datetime(unfixed_df['vulnerability_published'], errors='coerce', utc=True)
+    # ИЗМЕНЕНО: теперь берем дату из 'intro_date' вместо 'vulnerability_published'
+    introduced = pd.to_datetime(unfixed_df['intro_date'], errors='coerce', utc=True)
     current = pd.to_datetime(ref_date, utc=True)
-    ages = (current - published).dt.days.dropna()
+    ages = (current - introduced).dt.days.dropna() # ИЗМЕНЕНО: вычитаем introduced
     return round(float(((ages > 730).sum() / len(df)) * 100), 2)
 
 
@@ -57,7 +59,8 @@ def calc_avg_unfixed_life(df: pd.DataFrame, ref_date: str = '2026-05-22') -> flo
     2. СРЕДНЕЕ ВРЕМЯ ЖИЗНИ (Average Unfixed Life).
     Измеряет средний возраст активных дефектов.
     """
-    if df.empty or 'vulnerability_published' not in df.columns or 'affected_ranges' not in df.columns:
+    # ИЗМЕНЕНО: 'vulnerability_published' заменено на 'intro_date'
+    if df.empty or 'intro_date' not in df.columns or 'affected_ranges' not in df.columns:
         return 0.0
 
     def is_unfixed(ranges_data) -> bool:
@@ -75,9 +78,10 @@ def calc_avg_unfixed_life(df: pd.DataFrame, ref_date: str = '2026-05-22') -> flo
     unfixed_df = df[unfixed_mask].copy()
     if unfixed_df.empty: return 0.0
 
-    published = pd.to_datetime(unfixed_df['vulnerability_published'], errors='coerce', utc=True)
+    # ИЗМЕНЕНО: теперь берем дату из 'intro_date' вместо 'vulnerability_published'
+    introduced = pd.to_datetime(unfixed_df['intro_date'], errors='coerce', utc=True)
     current = pd.to_datetime(ref_date, utc=True)
-    ages = (current - published).dt.days.dropna()
+    ages = (current - introduced).dt.days.dropna() # ИЗМЕНЕНО: вычитаем introduced
     ages = ages[ages >= 0]
 
     return round(float(ages.mean()), 1) if not ages.empty else 0.0
@@ -141,12 +145,15 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
 
     weights = df[sev_col].apply(get_weight) if sev_col in df.columns else pd.Series([1.0] * len(df), index=df.index)
 
-    if 'vulnerability_published' in df.columns:
-        published = pd.to_datetime(df['vulnerability_published'], errors='coerce', utc=True)
+    # ИЗМЕНЕНО: 'vulnerability_published' заменено на 'intro_date'
+    if 'intro_date' in df.columns:
+        # ИЗМЕНЕНО: теперь берем дату из 'intro_date'
+        introduced = pd.to_datetime(df['intro_date'], errors='coerce', utc=True)
         current = pd.to_datetime(ref_date, utc=True)
-        ages = (current - published).dt.days.fillna(0).clip(lower=0)
+        ages = (current - introduced).dt.days.fillna(0).clip(lower=0) # ИЗМЕНЕНО: вычитаем introduced
     else:
         ages = pd.Series([0] * len(df), index=df.index)
+        
     conditions = [
         (ages < 180),
         (ages >= 180) & (ages < 365),
