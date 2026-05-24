@@ -25,11 +25,12 @@ def get_ranges(ranges_data) -> list:
 def calc_staleness_index(df: pd.DataFrame, ref_date: str = '2026-05-22') -> float:
     """
     1. ИНДЕКС ПРОТУХАНИЯ (Staleness Index).
-    Находит процент незакрытых уязвимостей, чей возраст с момента публикации
-              превышает 2 года
+    Находит процент незакрытых уязвимостей, чей возраст превышает 2 года.
     """
-    # ИЗМЕНЕНО: 'vulnerability_published' заменено на 'intro_date'
-    if df.empty or 'intro_date' not in df.columns or 'affected_ranges' not in df.columns:
+    # Умный выбор даты: ищем intro_date, если нет - берем published
+    date_col = 'intro_date' if 'intro_date' in df.columns else 'vulnerability_published'
+
+    if df.empty or date_col not in df.columns or 'affected_ranges' not in df.columns:
         return 0.0
 
     def is_unfixed(ranges_data) -> bool:
@@ -47,10 +48,10 @@ def calc_staleness_index(df: pd.DataFrame, ref_date: str = '2026-05-22') -> floa
     unfixed_df = df[unfixed_mask].copy()
     if unfixed_df.empty: return 0.0
 
-    # ИЗМЕНЕНО: теперь берем дату из 'intro_date' вместо 'vulnerability_published'
-    introduced = pd.to_datetime(unfixed_df['intro_date'], errors='coerce', utc=True)
+    # Используем найденную колонку
+    start_dates = pd.to_datetime(unfixed_df[date_col], errors='coerce', utc=True)
     current = pd.to_datetime(ref_date, utc=True)
-    ages = (current - introduced).dt.days.dropna() # ИЗМЕНЕНО: вычитаем introduced
+    ages = (current - start_dates).dt.days.dropna()
     return round(float(((ages > 730).sum() / len(df)) * 100), 2)
 
 
@@ -59,8 +60,9 @@ def calc_avg_unfixed_life(df: pd.DataFrame, ref_date: str = '2026-05-22') -> flo
     2. СРЕДНЕЕ ВРЕМЯ ЖИЗНИ (Average Unfixed Life).
     Измеряет средний возраст активных дефектов.
     """
-    # ИЗМЕНЕНО: 'vulnerability_published' заменено на 'intro_date'
-    if df.empty or 'intro_date' not in df.columns or 'affected_ranges' not in df.columns:
+    date_col = 'intro_date' if 'intro_date' in df.columns else 'vulnerability_published'
+
+    if df.empty or date_col not in df.columns or 'affected_ranges' not in df.columns:
         return 0.0
 
     def is_unfixed(ranges_data) -> bool:
@@ -78,10 +80,9 @@ def calc_avg_unfixed_life(df: pd.DataFrame, ref_date: str = '2026-05-22') -> flo
     unfixed_df = df[unfixed_mask].copy()
     if unfixed_df.empty: return 0.0
 
-    # ИЗМЕНЕНО: теперь берем дату из 'intro_date' вместо 'vulnerability_published'
-    introduced = pd.to_datetime(unfixed_df['intro_date'], errors='coerce', utc=True)
+    start_dates = pd.to_datetime(unfixed_df[date_col], errors='coerce', utc=True)
     current = pd.to_datetime(ref_date, utc=True)
-    ages = (current - introduced).dt.days.dropna() # ИЗМЕНЕНО: вычитаем introduced
+    ages = (current - start_dates).dt.days.dropna()
     ages = ages[ages >= 0]
 
     return round(float(ages.mean()), 1) if not ages.empty else 0.0
@@ -91,23 +92,9 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
                            sev_col: str = 'vulnerability_severity_text') -> float:
     """
     3. ИНТЕГРАЛЬНАЯ МЕТРИКА РИСКА (Integral Severity со ступенчатым штрафом).
-
-    Суть: Комплексный показатель опасности с учетом штрафа за заброшенность (abandonment risk).
-    Алгоритм:
-      1. Каждой уязвимости присваивается вес CVSS (CRITICAL=10, HIGH=7, MEDIUM=4, LOW=1).
-      2. Вес умножается на количество незакрытых веток пакета (unfixed_aff).
-      3. Применяется ступенчатый штраф (aging_coeff) в зависимости от возраста уязвимости:
-         - До 6 мес (<180 дней): 0.5
-         - От 6 до 12 мес: 1.0
-         - От 1 до 2 лет: 2.5
-         - Старше 2 лет: 5.0
-      4. Сумма всех штрафов делится на общее историческое количество веток (total_affections).
-    Бизнес-смысл: Метрика жестко пессимизирует классы уязвимостей, которые комьюнити
-                  игнорирует годами, и прощает те классы, где баги чинятся быстро.
     """
     if df.empty: return 0.0
 
-    # Шаг 1. Подсчет общего числа веток и незакрытых веток
     def count_affections(ranges_data) -> tuple:
         ranges = get_ranges(ranges_data)
         if not ranges: return (1, 1)
@@ -132,7 +119,6 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
         total_aff_series = pd.Series([1] * len(df), index=df.index)
         unfixed_aff_series = pd.Series([1] * len(df), index=df.index)
 
-    # Шаг 2. Назначаем веса по CVSS
     def get_weight(sev_val) -> float:
         if pd.isna(sev_val): return 1.0
         try:
@@ -145,15 +131,16 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
 
     weights = df[sev_col].apply(get_weight) if sev_col in df.columns else pd.Series([1.0] * len(df), index=df.index)
 
-    # ИЗМЕНЕНО: 'vulnerability_published' заменено на 'intro_date'
-    if 'intro_date' in df.columns:
-        # ИЗМЕНЕНО: теперь берем дату из 'intro_date'
-        introduced = pd.to_datetime(df['intro_date'], errors='coerce', utc=True)
+    # Умный выбор колонки с датой
+    date_col = 'intro_date' if 'intro_date' in df.columns else 'vulnerability_published'
+    
+    if date_col in df.columns:
+        start_dates = pd.to_datetime(df[date_col], errors='coerce', utc=True)
         current = pd.to_datetime(ref_date, utc=True)
-        ages = (current - introduced).dt.days.fillna(0).clip(lower=0) # ИЗМЕНЕНО: вычитаем introduced
+        ages = (current - start_dates).dt.days.fillna(0).clip(lower=0)
     else:
         ages = pd.Series([0] * len(df), index=df.index)
-        
+
     conditions = [
         (ages < 180),
         (ages >= 180) & (ages < 365),
@@ -164,7 +151,6 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
 
     aging_coeff = pd.Series(np.select(conditions, choices, default=0.0), index=df.index)
 
-    # Шаг 5. Итоговая математика (как в твоем примере)
     unfixed_weight_sum = weights * unfixed_aff_series
     abandonment_penalty = aging_coeff * unfixed_weight_sum
 
@@ -175,11 +161,6 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
 
 
 def calc_high_severity_ratio(df: pd.DataFrame, sev_col: str = 'vulnerability_severity_text') -> float:
-    """
-    4. ДОЛЯ КРИТИЧЕСКИХ УЯЗВИМОСТЕЙ (High Severity Ratio).
-    Возвращает процент НЕЗАКРЫТЫХ уязвимостей, имеющих оценку CVSS >= 7.0
-              (статусы HIGH и CRITICAL), от общего числа всех багов в выборке.
-    """
     if df.empty: return 0.0
 
     def is_unfixed(ranges_data) -> bool:
@@ -211,25 +192,12 @@ def calc_high_severity_ratio(df: pd.DataFrame, sev_col: str = 'vulnerability_sev
 
 
 def calc_defect_density(df: pd.DataFrame, pkg_col: str = 'package_name') -> float:
-    """
-    5. ПЛОТНОСТЬ ДЕФЕКТОВ (Defect Density).
-    Среднее количество уязвимостей на пакет
-    """
     if df.empty: return 0.0
     unique_packages = df[pkg_col].nunique() if pkg_col in df.columns and df[pkg_col].nunique() > 0 else 1
     return round(float(len(df) / unique_packages), 2)
 
 
 def calc_risk_concentration(df: pd.DataFrame, pkg_col: str = 'package_name') -> float:
-    """
-    6. КОНЦЕНТРАЦИЯ РИСКА (Принцип Парето / Risk Concentration).
-
-    Суть: Выявление главных виновников уязвимостей в экосистеме.
-    Алгоритм: Считает долю (в процентах) уязвимостей, которая генерируется всего
-              5-ю самыми проблемными (часто встречающимися) пакетами.
-    Если показатель высокий (например, 80%),
-    значит можно радикально улучшить безопасность проекта, заменив всего 5 зависимостей.
-    """
     if df.empty or pkg_col not in df.columns:
         return 0.0
 
@@ -244,11 +212,6 @@ def calc_risk_concentration(df: pd.DataFrame, pkg_col: str = 'package_name') -> 
 
 
 def calc_open_to_close_ratio(df: pd.DataFrame) -> float:
-    """
-    7. КОЭФФИЦИЕНТ НАКОПЛЕНИЯ ДОЛГА (Open-to-Close Ratio).
-    Оценка скорости решения проблем сообществом (тренд).
-    Отношение количества открытых (unfixed) багов к количеству закрытых (fixed).
-    """
     if df.empty or 'affected_ranges' not in df.columns:
         return 0.0
 
