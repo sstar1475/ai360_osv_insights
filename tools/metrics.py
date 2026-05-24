@@ -91,20 +91,10 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
                            sev_col: str = 'vulnerability_severity_text') -> float:
     """
     3. ИНТЕГРАЛЬНАЯ МЕТРИКА РИСКА (Integral Severity со ступенчатым штрафом).
-
     Суть: Комплексный показатель опасности с учетом штрафа за заброшенность (abandonment risk).
-    Алгоритм:
-      1. Каждой уязвимости присваивается вес CVSS (CRITICAL=10, HIGH=7, MEDIUM=4, LOW=1).
-      2. Вес умножается на количество незакрытых веток пакета (unfixed_aff).
-      3. Применяется ступенчатый штраф (aging_coeff) в зависимости от возраста уязвимости:
-         - До 6 мес (<180 дней): 0.5
-         - От 6 до 12 мес: 1.0
-         - От 1 до 2 лет: 2.5
-         - Старше 2 лет: 5.0
-      4. Сумма всех штрафов делится на общее историческое количество веток (total_affections).
-    Бизнес-смысл: Метрика жестко пессимизирует классы уязвимостей, которые комьюнити
-                  игнорирует годами, и прощает те классы, где баги чинятся быстро.
     """
+    if df.empty: return 0.0
+
     if df.empty: return 0.0
 
     # Шаг 1. Подсчет общего числа веток и незакрытых веток
@@ -147,7 +137,6 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
 
     # ИЗМЕНЕНО: 'vulnerability_published' заменено на 'intro_date'
     if 'intro_date' in df.columns:
-        # ИЗМЕНЕНО: теперь берем дату из 'intro_date'
         introduced = pd.to_datetime(df['intro_date'], errors='coerce', utc=True)
         current = pd.to_datetime(ref_date, utc=True)
         ages = (current - introduced).dt.days.fillna(0).clip(lower=0) # ИЗМЕНЕНО: вычитаем introduced
@@ -164,7 +153,6 @@ def calc_integral_severity(df: pd.DataFrame, ref_date: str = '2026-05-22',
 
     aging_coeff = pd.Series(np.select(conditions, choices, default=0.0), index=df.index)
 
-    # Шаг 5. Итоговая математика (как в твоем примере)
     unfixed_weight_sum = weights * unfixed_aff_series
     abandonment_penalty = aging_coeff * unfixed_weight_sum
 
@@ -271,6 +259,81 @@ def calc_open_to_close_ratio(df: pd.DataFrame) -> float:
         return float(unfixed_count)
 
     return round(float(unfixed_count / fixed_count), 2)
+
+
+def calc_mttr(df: pd.DataFrame) -> float:
+    """
+    8. СРЕДНЕЕ ВРЕМЯ ИСПРАВЛЕНИЯ (Mean Time to Repair - MTTR).
+    Рассчитывает среднюю разницу между датой появления (intro_date) и датой исправления (fixed_date)
+    для всех уязвимостей, имеющих маркер 'fixed'.
+    """
+    if df.empty:
+        return 0.0
+
+    # Проверяем наличие нужных колонок
+    if 'intro_date' not in df.columns or 'fixed_date' not in df.columns:
+        return 0.0
+
+    # Фильтруем только исправленные (те, где есть fixed_date)
+    fixed_mask = pd.notna(df['fixed_date']) & pd.notna(df['intro_date'])
+    fixed_df = df[fixed_mask].copy()
+
+    if fixed_df.empty:
+        return 0.0
+
+    # Если есть готовая колонка days_vulnerable, используем её
+    if 'days_vulnerable' in fixed_df.columns:
+        diffs = pd.to_numeric(fixed_df['days_vulnerable'], errors='coerce').dropna()
+        diffs = diffs[diffs >= 0]
+    else:
+        intro = pd.to_datetime(fixed_df['intro_date'], errors='coerce', utc=True)
+        fixed = pd.to_datetime(fixed_df['fixed_date'], errors='coerce', utc=True)
+        diffs = (fixed - intro).dt.days.dropna()
+        diffs = diffs[diffs >= 0]
+
+    return round(float(diffs.mean()), 1) if not diffs.empty else 0.0
+
+
+def calc_global_security_rating(df: pd.DataFrame, ref_date: str = '2026-05-22') -> float:
+    """
+    ГЛОБАЛЬНЫЙ РЕЙТИНГ БЕЗОПАСНОСТИ (GSR от 1 до 100).
+    Мультипликативная модель оценки здоровья экосистемы.
+
+    Формула:
+      1. Нормализация базовых штрафов (0-100):
+         P_S (Риск) = min((S / 25.0) * 100, 100)
+         P_D (Плотность Топ-100) = min((D / 10.0) * 100, 100)
+
+      2. Взвешенный базовый штраф (Риск составляет 3/4 веса, Плотность - 1/4):
+         Base_Penalty = ((P_S * 3.0) + (P_D * 1.0)) / 4.0
+
+      3. Мультипликатор критичности (Увеличивает штраф за высокую долю багов >= 7.0):
+         Multiplier = 1.0 + (HSR / 150.0)
+
+      4. Итоговый рейтинг (не ниже 1):
+         GSR = max(100 - (Base_Penalty * Multiplier), 1)
+    """
+    if df.empty: return 100.0
+
+    # 1. Сбор сырых метрик
+    S = calc_integral_severity(df, ref_date)
+    D = calc_defect_density(df)  # Top-100 плотность
+    HSR = calc_high_severity_ratio(df)  # Процент критических багов (>= 7.0)
+
+    # 2. Нормализация базовых штрафов к шкале 0-100
+    p_S = min((S / 25.0) * 100.0, 100.0)
+    p_D = min((D / 10.0) * 100.0, 100.0)
+
+    # 3. Базовый штраф с распределением весов 3/4 (риск) и 1/4 (плотность)
+    base_penalty = ((p_S * 3.0) + (p_D * 1.0)) / 4.0
+
+    # 4. Модификатор: Доля критических багов (HSR / 150)
+    multiplier = 1.0 + (HSR / 150.0)
+    total_penalty = base_penalty * multiplier
+
+    # 5. Итоговый глобальный рейтинг безопасности (GSR)
+    gsr = 100.0 - total_penalty
+    return round(max(gsr, 1.0), 1)
 
 
 def normalize(values: list[float]) -> list[float]:

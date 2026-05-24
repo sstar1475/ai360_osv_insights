@@ -51,10 +51,19 @@ RADAR_LAYOUT = dict(
         x=0.5,
         font=dict(size=15, color=_TEXT_PRIM),
         traceorder="normal",
-        bgcolor="rgba(22,27,34,0.8)",
+        bgcolor="rgba(22, 27, 34, 1.0)",
         bordercolor=_DARK_GRID,
         borderwidth=1
     ),
+    hoverlabel=dict(
+        bgcolor="rgba(13, 17, 23, 1.0)",
+        font_size=14,
+        font_family="JetBrains Mono, monospace",
+        font_color=_TEXT_PRIM,
+        bordercolor=_DARK_GRID
+    ),
+    hoverdistance=50,
+    spikedistance=50,
     paper_bgcolor=_DARK_BG,
     plot_bgcolor=_DARK_SURF,
     margin=dict(t=50, b=130, l=10, r=10)
@@ -74,10 +83,19 @@ STACKED_BAR_LAYOUT = dict(
         xanchor='center',
         x=0.5,
         font=dict(size=15, color=_TEXT_PRIM),
-        bgcolor="rgba(22,27,34,0.0)",
+        bgcolor="rgba(22, 27, 34, 1.0)",
+        bordercolor=_DARK_GRID,
+        borderwidth=1
+    ),
+    hoverlabel=dict(
+        bgcolor="rgba(13, 17, 23, 1.0)",
+        font_size=14,
+        font_family="JetBrains Mono, monospace",
+        font_color=_TEXT_PRIM,
         bordercolor=_DARK_GRID
     ),
-    hoverlabel=dict(bgcolor=_DARK_SURF, font_size=13, font_color=_TEXT_PRIM),
+    hoverdistance=50,
+    spikedistance=50,
     margin=dict(t=60, b=60, l=60, r=40),
     paper_bgcolor=_DARK_BG,
     plot_bgcolor=_DARK_SURF,
@@ -92,12 +110,12 @@ SANKEY_NODE_PALETTE = [
 ]
 
 SANKEY_LINK_COLORS = {
-    'CRITICAL': 'rgba(248, 81, 73, 0.45)',
-    'HIGH':     'rgba(217, 119, 6, 0.45)',
-    'MEDIUM':   'rgba(234, 179, 8, 0.35)',
-    'LOW':      'rgba(63, 185, 80, 0.35)',
-    'NONE':     'rgba(110, 118, 129, 0.25)',
-    'UNKNOWN':  'rgba(110, 118, 129, 0.25)'
+    'CRITICAL': 'rgba(248, 81, 73, 0.8)',
+    'HIGH':     'rgba(217, 119, 6, 0.8)',
+    'MEDIUM':   'rgba(234, 179, 8, 0.7)',
+    'LOW':      'rgba(63, 185, 80, 0.7)',
+    'NONE':     'rgba(110, 118, 129, 0.6)',
+    'UNKNOWN':  'rgba(110, 118, 129, 0.6)'
 }
 
 SANKEY_LAYOUT = dict(
@@ -107,7 +125,13 @@ SANKEY_LAYOUT = dict(
     margin=dict(t=40, b=40, l=40, r=40),
     paper_bgcolor=_DARK_BG,
     plot_bgcolor=_DARK_BG,
-    hoverlabel=dict(bgcolor=_DARK_SURF, font_size=13, font_family="Open Sans", font_color=_TEXT_PRIM)
+    hoverlabel=dict(
+        bgcolor="rgba(13, 17, 23, 1.0)",
+        font_size=14,
+        font_family="JetBrains Mono, monospace",
+        font_color=_TEXT_PRIM,
+        bordercolor=_DARK_GRID
+    )
 )
 
 # ---- Ecosystem Colors ----
@@ -127,6 +151,15 @@ RISK_MATRIX_LAYOUT = dict(
     plot_bgcolor=_DARK_SURF,
     paper_bgcolor=_DARK_BG,
     hovermode='closest',
+    hoverlabel=dict(
+        bgcolor="rgba(13, 17, 23, 1.0)",
+        font_size=14,
+        font_family="JetBrains Mono, monospace",
+        font_color=_TEXT_PRIM,
+        bordercolor=_DARK_GRID
+    ),
+    hoverdistance=50,
+    spikedistance=50,
     xaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
     yaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
     legend=dict(
@@ -136,7 +169,7 @@ RISK_MATRIX_LAYOUT = dict(
         xanchor="center",
         x=0.5,
         font=dict(size=14, color=_TEXT_PRIM),
-        bgcolor="rgba(22,27,34,0.8)",
+        bgcolor="rgba(22, 27, 34, 1.0)",
         bordercolor=_DARK_GRID,
         borderwidth=1
     )
@@ -150,6 +183,15 @@ TOP_PACKAGES_LAYOUT = dict(
     margin=dict(l=180, r=50, t=50, b=80),
     plot_bgcolor=_DARK_SURF,
     paper_bgcolor=_DARK_BG,
+    hoverlabel=dict(
+        bgcolor="rgba(13, 17, 23, 1.0)",
+        font_size=14,
+        font_family="JetBrains Mono, monospace",
+        font_color=_TEXT_PRIM,
+        bordercolor=_DARK_GRID
+    ),
+    hoverdistance=50,
+    spikedistance=50,
     xaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
     yaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
     legend=dict(
@@ -159,7 +201,7 @@ TOP_PACKAGES_LAYOUT = dict(
         xanchor="center",
         x=0.5,
         font=dict(size=14, color=_TEXT_PRIM),
-        bgcolor="rgba(22,27,34,0.8)",
+        bgcolor="rgba(22, 27, 34, 1.0)",
         bordercolor=_DARK_GRID,
         borderwidth=1
     )
@@ -174,6 +216,15 @@ TIMELINE_LAYOUT = dict(
     plot_bgcolor=_DARK_SURF,
     paper_bgcolor=_DARK_BG,
     hovermode='x unified',
+    hoverlabel=dict(
+        bgcolor="rgba(13, 17, 23, 1.0)",
+        font_size=14,
+        font_family="JetBrains Mono, monospace",
+        font_color=_TEXT_PRIM,
+        bordercolor=_DARK_GRID
+    ),
+    hoverdistance=80,
+    spikedistance=80,
     xaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
     yaxis=dict(gridcolor=_DARK_GRID, linecolor=_DARK_GRID, tickfont=dict(color=_TEXT_MUTE)),
     legend=dict(
@@ -183,7 +234,9 @@ TIMELINE_LAYOUT = dict(
         xanchor="center",
         x=0.5,
         font=dict(size=13, color=_TEXT_PRIM),
-        bgcolor="rgba(22,27,34,0.0)"
+        bgcolor="rgba(22, 27, 34, 1.0)",
+        bordercolor=_DARK_GRID,
+        borderwidth=1
     )
 )
 
@@ -195,6 +248,14 @@ HEATMAP_LAYOUT = dict(
     margin=dict(l=160, r=60, t=50, b=80),
     paper_bgcolor=_DARK_BG,
     plot_bgcolor=_DARK_SURF,
+    hoverlabel=dict(
+        bgcolor="rgba(13, 17, 23, 1.0)",
+        font_size=14,
+        font_family="JetBrains Mono, monospace",
+        font_color=_TEXT_PRIM,
+        bordercolor=_DARK_GRID
+    ),
+    hoverdistance=50,
     xaxis=dict(tickfont=dict(color=_TEXT_PRIM, size=13), linecolor=_DARK_GRID),
     yaxis=dict(tickfont=dict(color=_TEXT_PRIM, size=12), linecolor=_DARK_GRID)
 )

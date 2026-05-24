@@ -26,28 +26,6 @@ _DESC_STYLE = {
 def create_timeline_charts() -> html.Div:
     return html.Div([
 
-        # ── Quarterly Line Chart ──────────────────────────────────────────────
-        html.Div([
-            html.H3(
-                "Quarterly Vulnerability Trends",
-                id='timeline-line-btn',
-                className='collapsible-header',
-                style={'marginTop': '0'}
-            ),
-            html.Div([
-                html.P(
-                    "Number of newly disclosed vulnerabilities per quarter, broken down by ecosystem. "
-                    "Observe growth spurts and ecosystem-level response patterns.",
-                    style=_DESC_STYLE
-                ),
-                dcc.Graph(
-                    id='timeline-line-graph',
-                    figure=build_quarterly_line(df_report),
-                    config={'displayModeBar': False}
-                )
-            ], id='timeline-line-content', className='collapsible-content collapsed')
-        ], style=_CARD_STYLE),
-
         # ── Cumulative Area Chart ─────────────────────────────────────────────
         html.Div([
             html.H3(
@@ -95,18 +73,6 @@ def create_timeline_charts() -> html.Div:
 
 
 # ── Collapse callbacks ────────────────────────────────────────────────────────
-@callback(
-    Output('timeline-line-content', 'className'),
-    Output('timeline-line-btn', 'className'),
-    Input('timeline-line-btn', 'n_clicks'),
-    State('timeline-line-content', 'className'),
-    prevent_initial_call=True
-)
-def toggle_line(n, cls):
-    return (('collapsible-content', 'collapsible-header active')
-            if 'collapsed' in cls
-            else ('collapsible-content collapsed', 'collapsible-header'))
-
 
 @callback(
     Output('timeline-area-content', 'className'),

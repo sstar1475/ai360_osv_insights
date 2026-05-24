@@ -1,6 +1,7 @@
 import dash
-from dash import html, dcc
+from dash import html, dcc, callback, Input, Output
 import pandas as pd
+import plotly.graph_objects as go
 
 from app.app import df_report
 from tools.metrics import (
@@ -10,7 +11,10 @@ from tools.metrics import (
     calc_high_severity_ratio,
     calc_open_to_close_ratio,
     calc_risk_concentration,
+    calc_mttr,
+    calc_global_security_rating
 )
+from tools.config.chart import ECOSYSTEM_COLORS, TIMELINE_LAYOUT
 
 dash.register_page(__name__, path='/', name='Home')
 
@@ -28,12 +32,13 @@ total_ecosystems = 4  # PyPI · npm · Maven · Go
 total_packages   = df_report['package_name'].nunique() if 'package_name' in df_report.columns else 0
 
 # Fix rate
-import json, functools
+import json
 
 def _has_fix(ranges_data):
     if not ranges_data:
         return False
     try:
+        import json
         ranges = json.loads(ranges_data) if isinstance(ranges_data, str) else ranges_data
         for r in (ranges or []):
             for e in (r.get('events') or []):
@@ -49,21 +54,42 @@ except Exception:
     fix_rate = "—"
 
 # Average CVSS score
-try:
-    scores = pd.to_numeric(df_report['vulnerability_severity_score'], errors='coerce').dropna()
-    avg_cvss = round(float(scores.mean()), 1) if not scores.empty else "—"
-except Exception:
-    avg_cvss = "—"
+def _get_avg_cvss(df):
+    try:
+        # Try numeric first
+        numeric_scores = pd.to_numeric(df['vulnerability_severity_score'], errors='coerce')
+        
+        # Mapping for categorical if numeric is missing
+        sev_map = {'CRITICAL': 9.5, 'HIGH': 8.0, 'MODERATE': 5.5, 'MEDIUM': 5.5, 'LOW': 2.0, 'NONE': 0.0}
+        
+        def fill_from_text(row):
+            if pd.notna(row['vulnerability_severity_score']):
+                try:
+                    val = float(row['vulnerability_severity_score'])
+                    if val >= 0: return val
+                except: pass
+            
+            text_val = str(row['vulnerability_severity_text']).strip().upper() if pd.notna(row['vulnerability_severity_text']) else None
+            return sev_map.get(text_val, np.nan)
+
+        import numpy as np
+        combined_scores = df.apply(fill_from_text, axis=1).dropna()
+        return round(float(combined_scores.mean()), 1) if not combined_scores.empty else "—"
+    except Exception:
+        return "—"
+
+avg_cvss = _get_avg_cvss(df_report)
 
 # Metrics from DB
 high_sev_ratio = _safe(calc_high_severity_ratio, df_report)
 open_close     = _safe(calc_open_to_close_ratio, df_report)
 staleness      = _safe(calc_staleness_index, df_report)
-mttr           = _safe(calc_avg_unfixed_life, df_report)
+mttr           = _safe(calc_mttr, df_report)
 integral       = _safe(calc_integral_severity, df_report)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 def _fmt(val, suffix=""):
     if val == "—":
         return "—"
@@ -124,6 +150,76 @@ def nav_card(title, href, description):
     })
 
 
+# ── Callbacks ─────────────────────────────────────────────────────────────────
+
+@callback(
+    Output('home-gsr-graph', 'figure'),
+    Input('home-gsr-ecosystem-dropdown', 'value')
+)
+def update_gsr_graph(selected_eco):
+    ecosystems = ['PyPI', 'npm', 'Go', 'Maven']
+    
+    if selected_eco == 'All':
+        display_list = ecosystems + ['All']
+        height = 300
+    else:
+        display_list = [selected_eco]
+        height = 140
+
+    ratings = []
+    colors = []
+    labels = []
+
+    for eco in display_list:
+        if eco == 'All':
+            filtered_df = df_report
+            color = ECOSYSTEM_COLORS.get('All', '#8b949e')
+            label = "Overall Rating"
+        else:
+            filtered_df = df_report[df_report['package_ecosystem'] == eco]
+            color = ECOSYSTEM_COLORS.get(eco, '#e67e22')
+            label = eco
+        
+        rating = calc_global_security_rating(filtered_df)
+        ratings.append(rating)
+        colors.append(color)
+        labels.append(label)
+
+    # Create figure
+    fig = go.Figure(go.Bar(
+        x=ratings,
+        y=labels,
+        orientation='h',
+        marker=dict(
+            color=colors,
+            line=dict(color='#f0f6fc', width=1)
+        ),
+        text=[f"<b>{r}</b> / 100" for r in ratings],
+        textposition='auto',
+        textfont=dict(size=14, color='#f0f6fc', family='JetBrains Mono'),
+        hovertemplate="Ecosystem: <b>%{y}</b><br>Rating: <b>%{x}</b>/100<extra></extra>"
+    ))
+
+    # Layout adjustment
+    layout_cfg = dict(**TIMELINE_LAYOUT)
+    layout_cfg['height'] = height
+    layout_cfg['margin'] = dict(l=100, r=40, t=20, b=40)
+    layout_cfg['xaxis'] = dict(
+        range=[0, 105],
+        gridcolor='#30363d',
+        tickfont=dict(color='#8b949e'),
+        title="Security Score"
+    )
+    layout_cfg['yaxis'] = dict(
+        showgrid=False,
+        autorange="reversed", # Show top down
+        tickfont=dict(size=13, color='#f0f6fc', weight='bold')
+    )
+    
+    fig.update_layout(**layout_cfg)
+    return fig
+
+
 # ── Layout ────────────────────────────────────────────────────────────────────
 layout = html.Div([
 
@@ -163,7 +259,7 @@ layout = html.Div([
         kpi_card(f"{fix_rate}%", "Fix Rate", "with a known patch", '#3fb950', "FIXED"),
         kpi_card(str(avg_cvss), "Avg CVSS", "mean severity score", '#eab308', "CVSS"),
         kpi_card(_fmt(staleness, "%"), "Staleness Index", "> 2 yrs unfixed", '#d97706', "M1"),
-        kpi_card(_fmt(mttr, " d"), "MTtR", "mean time to repair", '#f85149', "M2"),
+        kpi_card(_fmt(mttr, " days"), "Mean Time to Repair", "avg fix time", '#f85149', "M2"),
         kpi_card(_fmt(integral), "Integral Risk", "weighted severity", '#d2a8ff', "M3"),
         kpi_card(f"{high_sev_ratio}%" if high_sev_ratio != "—" else "—", "High/Critical", "unpatched ratio", '#f85149', "M4"),
         kpi_card(f"{open_close}x" if open_close != "—" else "—", "Open/Close", "debt ratio", '#58a6ff', "M7"),
@@ -175,7 +271,61 @@ layout = html.Div([
         'padding': '0 4px'
     }),
 
+    # ── Global Security Rating Section ────────────────────────────────────────
+    html.Div([
+        html.Div([
+            html.Div([
+                html.H3("Global Security Ecosystem Rating", style={
+                    'fontFamily': "'Montserrat', sans-serif",
+                    'fontSize': '22px',
+                    'fontWeight': '700',
+                    'margin': '0',
+                    'color': '#f0f6fc'
+                }),
+                html.P("Holistic health score (0-100) based on severity, density and criticality.", style={
+                    'color': '#8b949e', 'fontSize': '14px', 'margin': '4px 0 0 0'
+                })
+            ], style={'flex': '1'}),
+            
+            html.Div([
+                dcc.Dropdown(
+                    id='home-gsr-ecosystem-dropdown',
+                    options=[
+                        {'label': 'All Ecosystems', 'value': 'All'},
+                        {'label': 'PyPI', 'value': 'PyPI'},
+                        {'label': 'npm', 'value': 'npm'},
+                        {'label': 'Go', 'value': 'Go'},
+                        {'label': 'Maven', 'value': 'Maven'}
+                    ],
+                    value='All',
+                    clearable=False,
+                    searchable=False,
+                    style={'width': '200px'}
+                )
+            ])
+        ], style={
+            'display': 'flex', 
+            'alignItems': 'center', 
+            'justifyContent': 'space-between',
+            'marginBottom': '24px'
+        }),
+
+        dcc.Graph(
+            id='home-gsr-graph',
+            config={'displayModeBar': False},
+            style={'height': '300px'}
+        )
+    ], style={
+        'background': '#161b22',
+        'border': '1px solid #30363d',
+        'borderRadius': '16px',
+        'padding': '32px',
+        'marginBottom': '48px',
+        'boxShadow': '0 4px 20px rgba(0,0,0,0.2)'
+    }),
+
     # ── Divider ───────────────────────────────────────────────────────────────
+
     html.Div([
         html.Div(style={'flex': '1', 'height': '1px', 'background': '#30363d'}),
         html.Span("EXPLORE", style={
@@ -193,7 +343,7 @@ layout = html.Div([
     html.Div([
         nav_card(
             "Common Statistics", "/common",
-            "Sankey flow diagrams and yearly vulnerability distribution"
+            "Sankey flow diagrams, CWE mappings, and quarterly trends"
         ),
         nav_card(
             "Package Risk Analytics", "/packages",

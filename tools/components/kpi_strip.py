@@ -21,9 +21,8 @@ def _fmt_val(val, suffix="", precision=1):
     return f"{val}{suffix}"
 
 
-def _kpi(icon, label, value, sub=None, color='#e67e22'):
+def _kpi(label, value, sub=None, color='#e67e22'):
     return html.Div([
-        html.Div(icon, style={'fontSize': '20px', 'marginBottom': '4px'}),
         html.Div(value, style={
             'fontFamily': "'Montserrat', sans-serif",
             'fontWeight': '800',
@@ -62,23 +61,23 @@ def create_affections_kpis(df: pd.DataFrame) -> html.Div:
     from tools.metrics import (
         calc_integral_severity,
         calc_staleness_index,
-        calc_avg_unfixed_life,
+        calc_mttr,
         calc_high_severity_ratio,
         calc_open_to_close_ratio,
     )
 
     integral  = _safe_call(calc_integral_severity, df)
     staleness = _safe_call(calc_staleness_index, df)
-    mttr      = _safe_call(calc_avg_unfixed_life, df)
+    mttr      = _safe_call(calc_mttr, df)
     high_ratio= _safe_call(calc_high_severity_ratio, df)
     oc_ratio  = _safe_call(calc_open_to_close_ratio, df)
 
     return html.Div([
-        _kpi("🔥", "Integral Risk Score", _fmt_val(integral), "weighted severity", color='#f85149'),
-        _kpi("⏳", "Staleness Index", _fmt_val(staleness, "%"), "> 2 yrs unfixed", color='#d97706'),
-        _kpi("🕐", "Mean Time to Repair", _fmt_val(mttr, " days", 0), "avg unfixed age", color='#eab308'),
-        _kpi("🔴", "High/Critical Ratio", _fmt_val(high_ratio, "%"), "of all vulns", color='#f85149'),
-        _kpi("📊", "Open / Close Ratio", _fmt_val(oc_ratio, "x"), "debt accumulation", color='#d2a8ff'),
+        _kpi("Integral Risk Score", _fmt_val(integral), "weighted severity", color='#f85149'),
+        _kpi("Staleness Index", _fmt_val(staleness, "%"), "> 2 yrs unfixed", color='#d97706'),
+        _kpi("Mean Time to Repair", _fmt_val(mttr, " days", 0), "avg fix time", color='#eab308'),
+        _kpi("High/Critical Ratio", _fmt_val(high_ratio, "%"), "of all vulns", color='#f85149'),
+        _kpi("Open / Close Ratio", _fmt_val(oc_ratio, "x"), "debt accumulation", color='#d2a8ff'),
     ], style={
         'display': 'flex',
         'flexWrap': 'wrap',
@@ -104,11 +103,11 @@ def create_packages_kpis(df: pd.DataFrame) -> html.Div:
     total_packages = df['package_name'].nunique() if 'package_name' in df.columns else 0
 
     return html.Div([
-        _kpi("📦", "Total Packages", f"{total_packages:,}", "unique packages", color='#58a6ff'),
-        _kpi("🎯", "Defect Density", _fmt_val(density), "vulns per package", color='#e67e22'),
-        _kpi("📐", "Risk Concentration", _fmt_val(concentration, "%"), "top-5 packages share", color='#f85149'),
-        _kpi("📊", "Open / Close Ratio", _fmt_val(oc_ratio, "x"), "unfixed / fixed", color='#d2a8ff'),
-        _kpi("⚠️", "High/Critical", _fmt_val(high_ratio, "%"), "of total vulns", color='#d97706'),
+        _kpi("Total Packages", f"{total_packages:,}", "unique packages", color='#58a6ff'),
+        _kpi("Defect Density", _fmt_val(density), "vulns per package", color='#e67e22'),
+        _kpi("Risk Concentration", _fmt_val(concentration, "%"), "top-5 packages share", color='#f85149'),
+        _kpi("Open / Close Ratio", _fmt_val(oc_ratio, "x"), "unfixed / fixed", color='#d2a8ff'),
+        _kpi("High/Critical", _fmt_val(high_ratio, "%"), "of total vulns", color='#d97706'),
     ], style={
         'display': 'flex',
         'flexWrap': 'wrap',
