@@ -3,6 +3,7 @@
 env/
 env_wsl/
 venv/
+fuck/
 
 # IDE
 .idea/
@@ -14,3 +15,8 @@ __pycache__/
 *.pyc
 *.pyo
 .ipynb_checkpoints/
+# Data & Reports
+GEMINI
+tools/cwe_parse/*.xml
+tools/cwe_parse/*.csv
+report/best_statistics/*.pdf

@@ -1,18 +1,19 @@
 import os
 import atexit
 import warnings
-from typing import Optional
+from typing import Optional, Any, Dict
 
 import pandas as pd
 from dotenv import load_dotenv
 from sshtunnel import SSHTunnelForwarder
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import paramiko
 
 if not hasattr(paramiko, "DSSKey"):
     paramiko.DSSKey = None
 
 warnings.filterwarnings('ignore', category=UserWarning)
+
 
 class OSVDataClient:
     def __init__(self) -> None:
@@ -49,40 +50,48 @@ class OSVDataClient:
         self.engine.dispose()
         self.tunnel.stop()
 
-    def query(self, sql_query: str) -> pd.DataFrame:
+    def query(self, sql_query: str, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
         Выполняет запрос используя нативные и быстрые механизмы Pandas.
-        Не создает новых подключений, берет готовое из пула.
+        Безопасно прокидывает параметры через SQLAlchemy text().
         """
-        return pd.read_sql(sql_query, con=self.engine)
+        return pd.read_sql(text(sql_query), con=self.engine, params=params)
 
     def get_vulnerabilities(self, limit: Optional[int] = None) -> pd.DataFrame:
+        """Получение записей из таблицы vulnerabilities (по умолчанию — все)"""
         sql: str = "SELECT * FROM vulnerabilities"
+        params = {}
         if limit is not None:
-            sql += f" LIMIT {int(limit)}"
-        return self.query(sql)
+            sql += " LIMIT :limit_val"
+            params["limit_val"] = int(limit)
+        return self.query(sql, params=params)
 
     def get_packages(self, limit: Optional[int] = None) -> pd.DataFrame:
-        """Универсальное получение всех полей из таблицы packages"""
+        """Получение записей из таблицы packages (по умолчанию — все)"""
         sql: str = "SELECT * FROM packages"
+        params = {}
         if limit is not None:
-            sql += f" LIMIT {limit}"
-        return self.query(sql)
+            sql += " LIMIT :limit_val"
+            params["limit_val"] = int(limit)
+        return self.query(sql, params=params)
 
     def get_raw_affections(self, limit: Optional[int] = None) -> pd.DataFrame:
-        """Универсальное получение всех полей из таблицы affections"""
+        """Получение записей из таблицы affections (по умолчанию — все)"""
         sql: str = "SELECT * FROM affections"
+        params = {}
         if limit is not None:
-            sql += f" LIMIT {limit}"
-        return self.query(sql)
+            sql += " LIMIT :limit_val"
+            params["limit_val"] = int(limit)
+        return self.query(sql, params=params)
 
     def get_detailed_report(self, limit: Optional[int] = None) -> pd.DataFrame:
         """
-        Объединяет все 3 таблицы, вытаскивая абсолютно все полезные данные без конфликтов имен.
-        intro_date — минимальная дата 'introduced' из JSONB ranges (для метрик staleness/severity).
+        УНИВЕРСАЛЬНЫЙ МЕТОД: Собирает абсолютно все данные из базы в один датафрейм.
+        Включает метаданные багов, пакеты, диапазоны и результаты обсчета таймлайнов.
         """
-        sql: str = r'''
+        sql: str = '''
             SELECT
+                -- Данные из таблицы vulnerabilities
                 v.id AS vulnerability_id,
                 v.summary AS vulnerability_summary,
                 v.published AS vulnerability_published,
@@ -93,64 +102,30 @@ class OSVDataClient:
                 v.severity AS vulnerability_severity_score,
                 v.cwe_id AS vulnerability_cwe_id,
                 v.severity_text AS vulnerability_severity_text,
+
+                -- Данные из таблицы packages
                 p.ecosystem AS package_ecosystem,
                 p.name AS package_name,
+
+                -- Данные из таблицы affections
                 a.severity AS affected_severity,
                 a.ranges AS affected_ranges,
-                (
-                    SELECT MIN(
-                        CASE
-                            WHEN (event->>'introduced') ~ '^\d{4}-\d{2}-\d{2}'
-                            THEN (event->>'introduced')::timestamptz
-                            ELSE NULL
-                        END
-                    )
-                    FROM jsonb_array_elements(a.ranges) AS range_elem,
-                         jsonb_array_elements(range_elem->'events') AS event
-                    WHERE event ? 'introduced'
-                      AND (event->>'introduced') IS NOT NULL
-                      AND (event->>'introduced') != '0'
-                ) AS intro_date,
-                (
-                    SELECT MAX((event->>'fixed')::text)
-                    FROM jsonb_array_elements(a.ranges) AS range_elem,
-                         jsonb_array_elements(range_elem->'events') AS event
-                    WHERE event ? 'fixed'
-                      AND (event->>'fixed') IS NOT NULL
-                      AND (event->>'fixed') != '0'
-                ) AS fixed_version
-            FROM affections a
-            JOIN vulnerabilities v ON a.vuln_id = v.pk_id
-            JOIN packages p ON a.pack_id = p.pk_id
-        '''
-        if limit is not None:
-            sql += f" LIMIT {limit}"
-        return self.query(sql)
 
-    def get_timeline_data(self) -> pd.DataFrame:
-        """
-        Агрегированные данные по кварталам для Timeline страницы.
-        Возвращает количество новых уязвимостей по кварталам и экосистемам.
-        """
-        sql: str = '''
-            SELECT
-                DATE_TRUNC('quarter', v.published) AS quarter,
-                p.ecosystem AS package_ecosystem,
-                COUNT(DISTINCT v.id) AS vuln_count,
-                COUNT(DISTINCT CASE
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM jsonb_array_elements(a.ranges) AS r,
-                             jsonb_array_elements(r->'events') AS e
-                        WHERE e ? 'fixed'
-                    ) THEN v.id
-                END) AS fixed_count
+                -- Данные из таблицы affected_ranges (Обсчитанные таймлайны и коммиты)
+                r.introduced_version,
+                r.fixed_version,
+                r.intro_date,
+                r.commit_date, -- Наш новый филд для лагов
+                r.fixed_date,
+                r.days_vulnerable,
+                r.status AS range_processing_status
             FROM affections a
             JOIN vulnerabilities v ON a.vuln_id = v.pk_id
             JOIN packages p ON a.pack_id = p.pk_id
-            WHERE v.published IS NOT NULL
-              AND v.published >= '2015-01-01'
-            GROUP BY DATE_TRUNC('quarter', v.published), p.ecosystem
-            ORDER BY quarter, package_ecosystem
+            LEFT JOIN affected_ranges r ON r.vuln_id = a.vuln_id AND r.pack_id = a.pack_id
         '''
-        return self.query(sql)
+        params = {}
+        if limit is not None:
+            sql += " LIMIT :limit_val"
+            params["limit_val"] = int(limit)
+        return self.query(sql, params=params)
