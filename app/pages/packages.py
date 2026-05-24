@@ -1,53 +1,36 @@
 import dash
 from dash import html
 
-dash.register_page(__name__, path='/packages', name='Packages Analysis')
+from tools.components.risk_matrix import create_risk_matrix_chart
+from tools.components.top_packages import create_top_packages_chart
 
-placeholder_card_style = {
-    'width': '46%',
-    'minHeight': '280px',
+dash.register_page(__name__, path='/packages', name='Package Risk Analytics')
+
+real_card_style = {
+    'width': '100%',
     'backgroundColor': '#ffffff',
     'boxShadow': '0 6px 20px rgba(0, 0, 0, 0.06)',
     'borderRadius': '16px',
-    'padding': '20px',
+    'padding': '25px',
     'boxSizing': 'border-box',
-    'display': 'flex',
-    'alignItems': 'center',
-    'justifyContent': 'center',
-    'color': '#95a5a6', 
-    'fontFamily': "'Open Sans', sans-serif",
-    'fontSize': '18px',
-    'fontStyle': 'italic',
-    'border': '2px dashed #ecf0f1'
-}
-
-grid_container_style = {
-    'display': 'flex',
-    'flexWrap': 'wrap',
-    'justifyContent': 'center',
-    'gap': '30px',
-    'width': '100%',
-    'padding': '10px'
+    'marginBottom': '25px'
 }
 
 layout = html.Div([
     html.H1(
-        "Packages Analysis", 
+        "Package Risk Analytics", 
         style={
             'textAlign': 'center', 
             'color': '#2c3e50', 
             'fontFamily': "'Montserrat', sans-serif",
             'fontSize': '38px',
             'fontWeight': '700',
-            'marginBottom': '50px'
+            'marginBottom': '40px'
         }
     ),
 
-    # Сетка для графиков
     html.Div([
-        html.Div("Топ уязвимых пакетов...", style=placeholder_card_style),
-        html.Div("Матрица связей экосистем...", style=placeholder_card_style),
-        html.Div("Сэнки-диаграмма перетекания...", style=placeholder_card_style),
-        html.Div("Анализ зависимостей...", style=placeholder_card_style),
-    ], style=grid_container_style)
+        html.Div(create_risk_matrix_chart(), style=real_card_style),
+        html.Div(create_top_packages_chart(), style=real_card_style)
+    ])
 ])

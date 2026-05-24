@@ -92,3 +92,47 @@ SANKEY_LAYOUT = dict(
     plot_bgcolor="#fdfdfe",
     hoverlabel=dict(bgcolor='white', font_size=13, font_family="Open Sans")
 )
+# Палитра для экосистем
+ECOSYSTEM_COLORS = {
+    'PyPI': '#377eb8',
+    'npm': '#e41a1c',
+    'Go': '#4daf4a',
+    'Maven': '#984ea3',
+    'All': '#7f8c8d'
+}
+
+# Шаблон для матрицы рисков
+RISK_MATRIX_LAYOUT = dict(
+    template="plotly_white",
+    font=BASE_FONT,
+    margin=dict(l=60, r=40, t=60, b=100), # Большой отступ снизу для легенды
+    plot_bgcolor='#fdfdfe',
+    paper_bgcolor='#fdfdfe',
+    hovermode='closest',
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.15,
+        xanchor="center",
+        x=0.5,
+        font=dict(size=15)
+    )
+)
+
+# Шаблон для Top Packages
+TOP_PACKAGES_LAYOUT = dict(
+    barmode='stack',
+    template="plotly_white",
+    font=BASE_FONT,
+    margin=dict(l=150, r=50, t=50, b=80),
+    plot_bgcolor='#fdfdfe',
+    paper_bgcolor='#fdfdfe',
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.12,
+        xanchor="center",
+        x=0.5,
+        font=dict(size=15)
+    )
+)

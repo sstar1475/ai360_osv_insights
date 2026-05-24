@@ -26,7 +26,6 @@ def create_radar_chart() -> html.Div:
                 style={'color': '#7f8c8d', 'fontSize': '16px', 'marginBottom': '25px'}),
 
             html.Div([
-                # --- ЛЕВАЯ КОЛОНКА (График) ---
                 html.Div([
                     html.Div([
                         html.Label("Select Metrics to Plot:",
@@ -35,7 +34,7 @@ def create_radar_chart() -> html.Div:
                         dcc.Checklist(
                             id='radar-metric-checklist',
                             options=[{'label': info['label'], 'value': key} for key, info in ALL_METRICS.items()],
-                            value=['metric_1'],
+                            value=['metric_1', 'metric_3', 'metric_4'],
                             inline=False,
                             labelStyle={'display': 'block', 'margin': '8px 0', 'color': '#34495e', 'fontSize': '15px',
                                         'cursor': 'pointer'}
@@ -46,10 +45,41 @@ def create_radar_chart() -> html.Div:
                     dcc.Graph(
                         id='radar-chart-graph',
                         config={'displayModeBar': False}
+                    ),
+
+                    html.Div(
+                        [
+                            html.Span("ℹ️ Normalization Note: ", style={'fontWeight': 'bold', 'color': '#34495e'}),
+                            "Metric values are logarithmically scaled using the formula ",
+                            html.Code("100 × log₂(1 + value / max_value)",
+                                      style={
+                                          'backgroundColor': '#ffffff',
+                                          'padding': '2px 6px',
+                                          'borderRadius': '4px',
+                                          'color': '#e67e22',
+                                          'fontSize': '12.5px',
+                                          'border': '1px solid #e0e6ed'
+                                      }),
+                            ". This ensures that metrics with vastly different absolute scales remain visually comparable without extreme outliers flattening the graph."
+                        ],
+                        style={
+                            'textAlign': 'center',
+                            'color': '#7f8c8d',
+                            'fontSize': '13px',
+                            'marginTop': '10px',
+                            'marginBottom': '20px',
+                            'padding': '12px 20px',
+                            'backgroundColor': '#f8f9fa',
+                            'borderRadius': '8px',
+                            'lineHeight': '1.6',
+                            'fontFamily': "'Open Sans', sans-serif",
+                            'width': '90%',
+                            'marginLeft': 'auto',
+                            'marginRight': 'auto',
+                            'border': '1px solid #ecf0f1'
+                        }
                     )
                 ], style={'width': '62%', 'display': 'inline-block', 'verticalAlign': 'top'}),
-
-                # --- ПРАВАЯ КОЛОНКА (Сайдбар) ---
                 html.Div([
                     html.Button(
                         "← Back",
@@ -79,12 +109,10 @@ def create_radar_chart() -> html.Div:
             ], style={'width': '100%', 'display': 'block'})
 
         ], id='radar-collapse-content', className='collapsible-content collapsed')
-        # ДОБАВИЛИ 'collapsed' — блок радара свернут
 
     ], style={'width': '100%', 'display': 'flex', 'flexDirection': 'column'})
 
 
-# === КОЛЛБЭК 1: НАВИГАЦИЯ ПО ГРАФУ (СТЕК ИСТОРИИ) ===
 @callback(
     Output('radar-cwe-history', 'data'),
     Input({'type': 'cwe-link', 'index': ALL}, 'n_clicks'),
@@ -113,7 +141,6 @@ def handle_radar_navigation(links_clicked, back_clicked, current_history):
     return dash.no_update
 
 
-# === КОЛЛБЭК 2: СИНХРОНИЗАЦИЯ ИНТЕРФЕЙСА ===
 @callback(
     Output('radar-chart-graph', 'figure'),
     Output('radar-sidebar-prototypes', 'children'),
@@ -165,7 +192,6 @@ def render_dynamic_radar_views(history, selected_metrics):
     return fig, prototype_elements, context_element, back_style, back_text
 
 
-# === КОЛЛБЭК 3: АНИМАЦИЯ ОСНОВНОГО КАРКАСА ===
 @callback(
     Output('radar-collapse-content', 'className'),
     Output('radar-collapse-btn', 'className'),
@@ -179,7 +205,6 @@ def toggle_radar_collapse(n_clicks, current_class):
     return "collapsible-content collapsed", "collapsible-header"
 
 
-# === КОЛЛБЭК 4: АНИМАЦИЯ СПИСКА ПРОТОТИПОВ В САЙДБАРЕ ===
 @callback(
     Output('radar-sidebar-prototypes', 'className'),
     Output('prototypes-collapse-btn', 'className'),
