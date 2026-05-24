@@ -16,7 +16,7 @@ __pycache__/
 *.pyo
 .ipynb_checkpoints/
 # Data & Reports
-GEMINI
+GEMINI.md
 tools/cwe_parse/*.xml
 tools/cwe_parse/*.csv
 report/best_statistics/*.pdf
