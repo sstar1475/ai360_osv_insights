@@ -192,9 +192,21 @@ def calc_high_severity_ratio(df: pd.DataFrame, sev_col: str = 'vulnerability_sev
 
 
 def calc_defect_density(df: pd.DataFrame, pkg_col: str = 'package_name') -> float:
-    if df.empty: return 0.0
-    unique_packages = df[pkg_col].nunique() if pkg_col in df.columns and df[pkg_col].nunique() > 0 else 1
-    return round(float(len(df) / unique_packages), 2)
+    """
+    5. ПЛОТНОСТЬ ДЕФЕКТОВ (Top-100 Defect Density).
+    Рассчитывает среднее количество уязвимостей на пакет среди 100 самых
+    проблемных библиотек (глубокий эпицентр).
+    """
+    if df.empty or pkg_col not in df.columns:
+        return 0.0
+
+    vulnerability_counts = df[pkg_col].value_counts()
+    if vulnerability_counts.empty:
+        return 0.0
+
+    # Берем топ 100 пакетов
+    top_100 = vulnerability_counts.head(100)
+    return round(float(top_100.mean()), 2)
 
 
 def calc_risk_concentration(df: pd.DataFrame, pkg_col: str = 'package_name') -> float:
@@ -234,6 +246,48 @@ def calc_open_to_close_ratio(df: pd.DataFrame) -> float:
         return float(unfixed_count)
 
     return round(float(unfixed_count / fixed_count), 2)
+
+
+def calc_global_security_rating(df: pd.DataFrame, ref_date: str = '2026-05-22') -> float:
+    """
+    ГЛОБАЛЬНЫЙ РЕЙТИНГ БЕЗОПАСНОСТИ (GSR от 1 до 100).
+    Мультипликативная модель оценки здоровья экосистемы.
+    
+    Формула:
+      1. Нормализация базовых штрафов (0-100):
+         P_S (Риск) = min((S / 25.0) * 100, 100)
+         P_D (Плотность Топ-100) = min((D / 10.0) * 100, 100)
+      
+      2. Взвешенный базовый штраф (Риск составляет 3/4 веса, Плотность - 1/4):
+         Base_Penalty = ((P_S * 3.0) + (P_D * 1.0)) / 4.0
+         
+      3. Мультипликатор критичности (Увеличивает штраф за высокую долю багов >= 7.0):
+         Multiplier = 1.0 + (HSR / 150.0)
+         
+      4. Итоговый рейтинг (не ниже 1):
+         GSR = max(100 - (Base_Penalty * Multiplier), 1)
+    """
+    if df.empty: return 100.0
+
+    # 1. Сбор сырых метрик
+    S = calc_integral_severity(df, ref_date)
+    D = calc_defect_density(df)             # Top-100 плотность
+    HSR = calc_high_severity_ratio(df)      # Процент критических багов (>= 7.0)
+
+    # 2. Нормализация базовых штрафов к шкале 0-100
+    p_S = min((S / 25.0) * 100.0, 100.0)
+    p_D = min((D / 10.0) * 100.0, 100.0)
+    
+    # 3. Базовый штраф с распределением весов 3/4 (риск) и 1/4 (плотность)
+    base_penalty = ((p_S * 3.0) + (p_D * 1.0)) / 4.0
+
+    # 4. Модификатор: Доля критических багов (HSR / 150)
+    multiplier = 1.0 + (HSR / 150.0)
+    total_penalty = base_penalty * multiplier
+
+    # 5. Итоговый глобальный рейтинг безопасности (GSR)
+    gsr = 100.0 - total_penalty
+    return round(max(gsr, 1.0), 1)
 
 
 def normalize(values: list[float]) -> list[float]:
