@@ -1,0 +1,16 @@
+.git
+.idea
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv
+ENV
+node_modules
+.DS_Store
+*.ipynb
+parse/local_upload/*.py
+report/*.ipynb
+report/best_statistics/

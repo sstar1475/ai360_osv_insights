@@ -8,3 +8,4 @@ paramiko
 sshtunnel
 python-dotenv
 requests
+gunicorn

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  dash-app:
+    build: .
+    container_name: osv-insights-app
+    ports:
+      - "40072:8050"
+    env_file:
+      - .env
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

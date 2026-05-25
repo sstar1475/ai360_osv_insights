@@ -24,6 +24,7 @@ app = dash.Dash(
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True
 )
+server = app.server
 
 from tools.components.kata import create_kata_widget
 
